@@ -325,16 +325,28 @@
                                 </Grid>
                             </Border>
 
-                            <!-- Connections Log -->
+                            <!-- Connections Log (read-only display: SelectableTextBlock is far
+                                 lighter than an editable TextBox — no undo buffer/caret/input
+                                 machinery — while still allowing text selection + copy) -->
                             <ScrollViewer>
-                                <TextBox Text="{Binding FilteredConnectionsLog, Mode=OneWay}"
-                                         IsReadOnly="True"
-                                         AcceptsReturn="True"
-                                         TextWrapping="Wrap"
-                                         Background="Transparent"
-                                         BorderThickness="0"
-                                         Watermark="No active connections..."
-                                         MinHeight="500"/>
+                                <Panel MinHeight="500">
+                                    <SelectableTextBlock Text="{Binding FilteredConnectionsLog, Mode=OneWay}"
+                                                         FontFamily="Consolas,Courier New"
+                                                         FontSize="13"
+                                                         Foreground="#FFD4D4D4"
+                                                         SelectionBrush="#FF264F78"
+                                                         TextWrapping="Wrap"
+                                                         Padding="8"
+                                                         VerticalAlignment="Top"/>
+                                    <TextBlock Text="No active connections..."
+                                               Foreground="#FF6A6A6A"
+                                               FontFamily="Consolas,Courier New"
+                                               FontSize="13"
+                                               Padding="8"
+                                               VerticalAlignment="Top"
+                                               IsHitTestVisible="False"
+                                               IsVisible="{Binding FilteredConnectionsLog, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                </Panel>
                             </ScrollViewer>
                         </DockPanel>
                     </Border>
@@ -361,15 +373,26 @@
                                 </Grid>
                             </Border>
 
-                            <!-- Activity Log -->
+                            <!-- Activity Log (read-only: SelectableTextBlock, see connections log) -->
                             <ScrollViewer>
-                                <TextBox Text="{Binding FilteredActivityLog, Mode=OneWay}"
-                                         IsReadOnly="True"
-                                         AcceptsReturn="True"
-                                         TextWrapping="Wrap"
-                                         Background="Transparent"
-                                         BorderThickness="0"
-                                         MinHeight="500"/>
+                                <Panel MinHeight="500">
+                                    <SelectableTextBlock Text="{Binding FilteredActivityLog, Mode=OneWay}"
+                                                         FontFamily="Consolas,Courier New"
+                                                         FontSize="13"
+                                                         Foreground="#FFD4D4D4"
+                                                         SelectionBrush="#FF264F78"
+                                                         TextWrapping="Wrap"
+                                                         Padding="8"
+                                                         VerticalAlignment="Top"/>
+                                    <TextBlock Text="No activity yet..."
+                                               Foreground="#FF6A6A6A"
+                                               FontFamily="Consolas,Courier New"
+                                               FontSize="13"
+                                               Padding="8"
+                                               VerticalAlignment="Top"
+                                               IsHitTestVisible="False"
+                                               IsVisible="{Binding FilteredActivityLog, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                </Panel>
                             </ScrollViewer>
                         </DockPanel>
                     </Border>

@@ -123,29 +123,44 @@ public partial class ProxyRulesWindow : Window
         }
     }
 
+    // Holds the rule being dragged. This is an in-process, single-window reorder, so we
+    // keep the object in a field rather than serializing it into the drag payload —
+    // Avalonia 12's DataTransfer/DataFormat model is format-oriented (text/bytes/files)
+    // and doesn't carry arbitrary .NET objects. The DataTransfer below just initiates the
+    // drag; the actual payload is _draggedRule.
+    private ProxyRule? _draggedRule;
+
     private async void Rule_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Border border || border.DataContext is not ProxyRule rule)
             return;
 
-        var dragData = new DataObject();
-        dragData.Set("DraggedRule", rule);
-
-        var result = await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
-
-        if (result == DragDropEffects.Move && DataContext is ProxyRulesViewModel vm)
+        _draggedRule = rule;
+        try
         {
-            // refsh indices after drag completes
-            for (int i = 0; i < vm.ProxyRules.Count; i++)
+            var dragData = new DataTransfer();
+            dragData.Add(DataTransferItem.Create(DataFormat.Text, "rule"));
+
+            var result = await DragDrop.DoDragDropAsync(e, dragData, DragDropEffects.Move);
+
+            if (result == DragDropEffects.Move && DataContext is ProxyRulesViewModel vm)
             {
-                vm.ProxyRules[i].Index = i + 1;
+                // refsh indices after drag completes
+                for (int i = 0; i < vm.ProxyRules.Count; i++)
+                {
+                    vm.ProxyRules[i].Index = i + 1;
+                }
             }
+        }
+        finally
+        {
+            _draggedRule = null;
         }
     }
 
     private void Rules_DragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = DragDropEffects.Move;
+        e.DragEffects = _draggedRule != null ? DragDropEffects.Move : DragDropEffects.None;
     }
 
     private void Rules_Drop(object? sender, DragEventArgs e)
@@ -153,7 +168,7 @@ public partial class ProxyRulesWindow : Window
         if (DataContext is not ProxyRulesViewModel vm)
             return;
 
-        if (e.Data.Get("DraggedRule") is not ProxyRule draggedRule)
+        if (_draggedRule is not ProxyRule draggedRule)
             return;
 
         if (e.Source is Control control)
