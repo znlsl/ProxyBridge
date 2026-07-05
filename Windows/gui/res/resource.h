@@ -84,6 +84,8 @@
 #define IDC_SE_L_PASS              334
 #define IDC_SE_G_SERVER            335   // "Server" group box
 #define IDC_SE_G_AUTH              336   // "Authentication" group box
+#define IDC_SE_NAME                327   // friendly name edit
+#define IDC_SE_L_NAME              337   // "Name:" label
 
 // Proxy Checker dialog
 #define IDD_CHECKER                340
@@ -126,6 +128,8 @@
 #define IDC_RE_EX_PORTS            439
 #define IDC_RE_EX_DOMAINS          440
 #define IDC_RE_UDPNOTE             441
+#define IDC_RE_NAME                442   // friendly name edit
+#define IDC_RE_L_NAME              443   // "Name:" label
 
 // Name-input dialog (new profile)
 #define IDD_NAME                   500

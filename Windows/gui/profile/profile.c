@@ -173,6 +173,7 @@ void PB_ProfileLoad(const wchar_t* name, PBProfile* p)
                 if (c->type != J_OBJ) continue;
                 PBConfig* cf = &p->cfg[p->cfgCount++];
                 cf->storedId = (UINT32)json_long(c, "Id", 0);
+                u2w(json_str(c, "Name", ""), cf->name, 128);
                 u2w(json_str(c, "Type", "SOCKS5"), cf->type, 16);
                 u2w(json_str(c, "Host", ""), cf->host, 128);
                 u2w(json_str(c, "Port", ""), cf->port, 16);
@@ -186,6 +187,7 @@ void PB_ProfileLoad(const wchar_t* name, PBProfile* p)
             {
                 if (r->type != J_OBJ) continue;
                 PBRule* ru = &p->rule[p->ruleCount++];
+                u2w(json_str(r, "Name", "ProxyBridge Rule"), ru->name, 128);
                 u2w(json_str(r, "ProcessName", "*"), ru->proc, 256);
                 u2w(json_str(r, "TargetHosts", "*"), ru->hosts, 256);
                 u2w(json_str(r, "TargetPorts", "*"), ru->ports, 128);
@@ -242,6 +244,7 @@ BOOL PB_ProfileSave(const wchar_t* name, const PBProfile* p)
         sb_put(&b, i ? ",\n" : "\n"); sb_put(&b, "    {\n");
         snprintf(tmp, sizeof(tmp), "%u", c->storedId);
         sb_put(&b, "      \"Id\": "); sb_put(&b, tmp); sb_put(&b, ",\n");
+        put_kv_str(&b, "      ", "Name", c->name, ",\n");
         put_kv_str(&b, "      ", "Type", c->type, ",\n");
         put_kv_str(&b, "      ", "Host", c->host, ",\n");
         put_kv_str(&b, "      ", "Port", c->port, ",\n");
@@ -256,6 +259,7 @@ BOOL PB_ProfileSave(const wchar_t* name, const PBProfile* p)
     {
         const PBRule* r = &p->rule[i];
         sb_put(&b, i ? ",\n" : "\n"); sb_put(&b, "    {\n");
+        put_kv_str(&b, "      ", "Name", r->name, ",\n");
         put_kv_str(&b, "      ", "ProcessName", r->proc, ",\n");
         put_kv_str(&b, "      ", "TargetHosts", r->hosts, ",\n");
         put_kv_str(&b, "      ", "TargetPorts", r->ports, ",\n");

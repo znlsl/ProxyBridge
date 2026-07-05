@@ -42,18 +42,31 @@ static LRESULT CALLBACK ListDarkSubProc(HWND h, UINT m, WPARAM w, LPARAM l, UINT
     return DefSubclassProc(h, m, w, l);
 }
 
-// Stretch the last column so the list uses its full width (no dead space on the right).
-static void FillLastColumn(HWND lv, int count)
+// Grow every column proportionally so the grid fills its full client width - no dead space
+// on the right, and no single over-wide column. Idempotent: once the columns already span
+// the width, re-calling it is a no-op (it never shrinks below the seeded widths).
+#define PB_MAX_COLS 16
+static void FillColumns(HWND lv, int count)
 {
+    if (count <= 0 || count > PB_MAX_COLS) return;
     RECT rc; GetClientRect(lv, &rc);
-    int used = 0;
-    for (int i = 0; i < count - 1; i++) used += ListView_GetColumnWidth(lv, i);
-    int w = rc.right - used - 2;
-    if (w > 80) ListView_SetColumnWidth(lv, count - 1, w);
+    int avail = rc.right - 4;                 // small margin to avoid a stray h-scrollbar
+    if (avail <= 0) return;
+    int w[PB_MAX_COLS]; int total = 0;
+    for (int i = 0; i < count; i++) { w[i] = ListView_GetColumnWidth(lv, i); total += w[i]; }
+    if (total <= 0 || avail <= total) return; // nothing to distribute (or would need to shrink)
+    int extra = avail - total, given = 0;
+    for (int i = 0; i < count; i++)
+    {
+        int add = (i == count - 1) ? (extra - given)      // last column soaks up the rounding
+                                   : (int)((INT64)extra * w[i] / total);
+        given += add;
+        ListView_SetColumnWidth(lv, i, w[i] + add);
+    }
 }
 
 // Dark-theme a report ListView: full-row select + double buffer (+ any extra ex-styles),
-// dark colours, dark-drawn header. Columns/FillLastColumn are added by the caller.
+// dark colours, dark-drawn header. Columns/FillColumns are added by the caller.
 static void DarkListView(HWND lv, DWORD extraExStyle)
 {
     ListView_SetExtendedListViewStyle(lv, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | extraExStyle);
@@ -71,10 +84,10 @@ static void DarkListView(HWND lv, DWORD extraExStyle)
 static void InitServerList(HWND lv)
 {
     DarkListView(lv, 0);
-    struct { int s; int w; } cols[] = { {S_COL_ADDR, 190}, {S_COL_PORTS, 70}, {S_COL_TYPE, 90} };
+    struct { int s; int w; } cols[] = { {S_COL_NAME, 130}, {S_COL_ADDR, 160}, {S_COL_PORTS, 60}, {S_COL_TYPE, 80} };
     LVCOLUMNW c; c.mask = LVCF_TEXT | LVCF_WIDTH;
-    for (int i = 0; i < 3; i++) { c.pszText = (LPWSTR)T(cols[i].s); c.cx = cols[i].w; ListView_InsertColumn(lv, i, &c); }
-    FillLastColumn(lv, 3);
+    for (int i = 0; i < 4; i++) { c.pszText = (LPWSTR)T(cols[i].s); c.cx = cols[i].w; ListView_InsertColumn(lv, i, &c); }
+    FillColumns(lv, 4);
 }
 static void RefreshServerList(HWND lv)
 {
@@ -83,10 +96,11 @@ static void RefreshServerList(HWND lv)
     {
         PBConfig* c = &g_profile.cfg[i];
         LVITEMW it; ZeroMemory(&it, sizeof(it));
-        it.mask = LVIF_TEXT; it.iItem = i; it.pszText = c->host;
+        it.mask = LVIF_TEXT; it.iItem = i; it.pszText = c->name[0] ? c->name : c->host;
         ListView_InsertItem(lv, &it);
-        ListView_SetItemText(lv, i, 1, c->port);
-        ListView_SetItemText(lv, i, 2, c->type);
+        ListView_SetItemText(lv, i, 1, c->host);
+        ListView_SetItemText(lv, i, 2, c->port);
+        ListView_SetItemText(lv, i, 3, c->type);
     }
 }
 
@@ -101,6 +115,7 @@ INT_PTR CALLBACK ServerEditDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
         SetWindowLongPtrW(dlg, GWLP_USERDATA, (LONG_PTR)lp);
         PBConfig* c = (PBConfig*)lp;
         SetWindowTextW(dlg, T(S_DLG_SERVER));
+        SetDlgItemTextW(dlg, IDC_SE_L_NAME,   T(S_L_NAME));
         SetDlgItemTextW(dlg, IDC_SE_G_SERVER, T(S_G_SERVER));
         SetDlgItemTextW(dlg, IDC_SE_G_AUTH,   T(S_G_AUTH));
         SetDlgItemTextW(dlg, IDC_SE_L_ADDR,   T(S_L_ADDR));
@@ -115,6 +130,7 @@ INT_PTR CALLBACK ServerEditDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
         SendMessageW(pr, CB_ADDSTRING, 0, (LPARAM)L"SOCKS5");
         SendMessageW(pr, CB_ADDSTRING, 0, (LPARAM)L"HTTP");
         SendMessageW(pr, CB_SETCURSEL, (_wcsicmp(c->type, L"HTTP") == 0) ? 1 : 0, 0);
+        SetDlgItemTextW(dlg, IDC_SE_NAME, c->name);
         SetDlgItemTextW(dlg, IDC_SE_ADDR, c->host);
         if (c->port[0]) SetDlgItemTextW(dlg, IDC_SE_PORT, c->port); else SetDlgItemInt(dlg, IDC_SE_PORT, 1080, FALSE);
         SetDlgItemTextW(dlg, IDC_SE_USER, c->user);
@@ -142,7 +158,9 @@ INT_PTR CALLBACK ServerEditDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
             PBConfig* c = (PBConfig*)GetWindowLongPtrW(dlg, GWLP_USERDATA);
             int isHttp = (int)SendMessageW(GetDlgItem(dlg, IDC_SE_PROTO), CB_GETCURSEL, 0, 0) == 1;
             lstrcpynW(c->type, isHttp ? L"HTTP" : L"SOCKS5", 16);
+            GetDlgItemTextW(dlg, IDC_SE_NAME, c->name, 128);
             GetDlgItemTextW(dlg, IDC_SE_ADDR, c->host, 128);
+            if (!c->name[0]) lstrcpynW(c->name, c->host[0] ? c->host : L"Proxy Server", 128);
             GetDlgItemTextW(dlg, IDC_SE_PORT, c->port, 16);
             if (IsDlgButtonChecked(dlg, IDC_SE_AUTH) == BST_CHECKED)
             {
@@ -266,7 +284,7 @@ INT_PTR CALLBACK ServersDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
         RefreshServerList(GetDlgItem(dlg, IDC_SV_LIST));
         return TRUE;
     case WM_SIZE:
-        FillLastColumn(GetDlgItem(dlg, IDC_SV_LIST), 3);
+        FillColumns(GetDlgItem(dlg, IDC_SV_LIST), 4);
         return FALSE;
     PB_DARK_CTLCOLORS;
     case WM_NOTIFY:
@@ -285,6 +303,7 @@ INT_PTR CALLBACK ServersDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
         {
             if (g_profile.cfgCount >= PB_MAX_CFG) { MessageBoxW(dlg, L"Config limit reached.", APP_TITLE, MB_OK); return TRUE; }
             PBConfig c; ZeroMemory(&c, sizeof(c));
+            lstrcpynW(c.name, L"Proxy Server", 128);
             if (DialogBoxParamW(g_hInst, MAKEINTRESOURCEW(IDD_SERVER), dlg, ServerEditDlgProc, (LPARAM)&c) == 1)
             {
                 char h[256], u[256], p[256]; W2Ux(c.host, h, sizeof(h)); W2Ux(c.user, u, sizeof(u)); W2Ux(c.pass, p, sizeof(p));
@@ -348,13 +367,13 @@ static void InitRulesList(HWND lv)
     // Checkboxes give the enable/disable toggle in the first column.
     DarkListView(lv, LVS_EX_CHECKBOXES);
     struct { int s; int w; } cols[] = {
-        {S_COL_ON, 36}, {S_COL_APPS, 180}, {S_COL_HOSTS, 70}, {S_COL_PORTS, 60},
-        {S_COL_DOMAINS, 100}, {S_COL_PROTO, 60}, {S_COL_ACTION, 70}, {S_COL_CFG, 200}
+        {S_COL_ON, 36}, {S_COL_NAME, 130}, {S_COL_APPS, 160}, {S_COL_HOSTS, 70}, {S_COL_PORTS, 55},
+        {S_COL_DOMAINS, 90}, {S_COL_PROTO, 55}, {S_COL_ACTION, 65}, {S_COL_CFG, 190}
     };
     LVCOLUMNW c; c.mask = LVCF_TEXT | LVCF_WIDTH;
-    for (int i = 0; i < 8; i++) { c.pszText = (LPWSTR)T(cols[i].s); c.cx = cols[i].w; ListView_InsertColumn(lv, i, &c); }
+    for (int i = 0; i < 9; i++) { c.pszText = (LPWSTR)T(cols[i].s); c.cx = cols[i].w; ListView_InsertColumn(lv, i, &c); }
     SetWindowSubclass(lv, ListDarkSubProc, 3, 0);
-    FillLastColumn(lv, 8);
+    FillColumns(lv, 9);
 }
 static void RefreshRulesList(HWND lv)
 {
@@ -366,24 +385,25 @@ static void RefreshRulesList(HWND lv)
         LVITEMW it; ZeroMemory(&it, sizeof(it));
         it.mask = LVIF_TEXT; it.iItem = i; it.pszText = (LPWSTR)L"";
         ListView_InsertItem(lv, &it);
-        ListView_SetItemText(lv, i, 1, r->proc);
-        ListView_SetItemText(lv, i, 2, r->hosts);
-        ListView_SetItemText(lv, i, 3, r->ports);
-        ListView_SetItemText(lv, i, 4, r->domains);
-        ListView_SetItemText(lv, i, 5, r->proto);
-        ListView_SetItemText(lv, i, 6, r->action);
-        wchar_t cfg[160];
+        ListView_SetItemText(lv, i, 1, r->name[0] ? r->name : (LPWSTR)L"ProxyBridge Rule");
+        ListView_SetItemText(lv, i, 2, r->proc);
+        ListView_SetItemText(lv, i, 3, r->hosts);
+        ListView_SetItemText(lv, i, 4, r->ports);
+        ListView_SetItemText(lv, i, 5, r->domains);
+        ListView_SetItemText(lv, i, 6, r->proto);
+        ListView_SetItemText(lv, i, 7, r->action);
+        wchar_t cfg[200];
         if (_wcsicmp(r->action, L"PROXY") == 0)
         {
             const PBConfig* c = NULL;
             for (int k = 0; k < g_profile.cfgCount; k++)
                 if (g_profile.cfg[k].storedId == r->cfgStoredId) { c = &g_profile.cfg[k]; break; }
-            if (c) _snwprintf_s(cfg, 160, _TRUNCATE, L"%s %s:%s", c->type, c->host, c->port);
-            else   _snwprintf_s(cfg, 160, _TRUNCATE, L"#%u (missing)", r->cfgStoredId);
-            cfg[159] = 0;
+            if (c) _snwprintf_s(cfg, 200, _TRUNCATE, L"%s  %s  %s:%s", c->name[0] ? c->name : c->type, c->type, c->host, c->port);
+            else   _snwprintf_s(cfg, 200, _TRUNCATE, L"#%u (missing)", r->cfgStoredId);
+            cfg[199] = 0;
         }
-        else lstrcpynW(cfg, L"\x2014", 160);   // em dash for Direct/Block
-        ListView_SetItemText(lv, i, 7, cfg);
+        else lstrcpynW(cfg, L"\x2014", 200);   // em dash for Direct/Block
+        ListView_SetItemText(lv, i, 8, cfg);
         ListView_SetCheckState(lv, i, r->enabled ? TRUE : FALSE);
     }
     g_rulesRefreshing = FALSE;
@@ -400,6 +420,7 @@ INT_PTR CALLBACK RuleEditDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
         SetWindowLongPtrW(dlg, GWLP_USERDATA, (LONG_PTR)lp);
         PBRule* r = (PBRule*)lp;
         SetWindowTextW(dlg, T(S_DLG_RULE));
+        SetDlgItemTextW(dlg, IDC_RE_L_NAME,   T(S_L_NAME));
         SetDlgItemTextW(dlg, IDC_RE_ENABLED,  T(S_CHK_ENABLED));
         SetDlgItemTextW(dlg, IDC_RE_L_APPS,   T(S_L_APPS));
         SetDlgItemTextW(dlg, IDC_RE_L_HOSTS,  T(S_L_HOSTS));
@@ -427,13 +448,14 @@ INT_PTR CALLBACK RuleEditDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
         {
             PBConfig* c = &g_profile.cfg[i];
             wchar_t label[320];
-            _snwprintf_s(label, 320, _TRUNCATE, L"%s  %s:%s  (#%u)", c->type, c->host, c->port, c->storedId);
+            _snwprintf_s(label, 320, _TRUNCATE, L"%s  %s  %s:%s", c->name[0] ? c->name : c->type, c->type, c->host, c->port);
             label[319] = 0;
             LRESULT idx = SendMessageW(ac, CB_ADDSTRING, 0, (LPARAM)label);
             SendMessageW(ac, CB_SETITEMDATA, idx, c->storedId);
         }
-        SendMessageW(ac, CB_SETDROPPEDWIDTH, 280, 0);
+        SendMessageW(ac, CB_SETDROPPEDWIDTH, 360, 0);
         // Seed fields from the rule.
+        SetDlgItemTextW(dlg, IDC_RE_NAME,    r->name[0]    ? r->name    : L"ProxyBridge Rule");
         SetDlgItemTextW(dlg, IDC_RE_APPS,    r->proc[0]    ? r->proc    : L"*");
         SetDlgItemTextW(dlg, IDC_RE_HOSTS,   r->hosts[0]   ? r->hosts   : L"*");
         SetDlgItemTextW(dlg, IDC_RE_PORTS,   r->ports[0]   ? r->ports   : L"*");
@@ -503,6 +525,8 @@ INT_PTR CALLBACK RuleEditDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
         case IDOK:
         {
             PBRule* r = (PBRule*)GetWindowLongPtrW(dlg, GWLP_USERDATA);
+            GetDlgItemTextW(dlg, IDC_RE_NAME,    r->name,    128);
+            if (!r->name[0]) lstrcpynW(r->name, L"ProxyBridge Rule", 128);
             GetDlgItemTextW(dlg, IDC_RE_APPS,    r->proc,    256);
             GetDlgItemTextW(dlg, IDC_RE_HOSTS,   r->hosts,   256);
             GetDlgItemTextW(dlg, IDC_RE_PORTS,   r->ports,   128);
@@ -562,7 +586,7 @@ INT_PTR CALLBACK RulesDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
         RefreshRulesList(GetDlgItem(dlg, IDC_RL_LIST));
         return TRUE;
     case WM_SIZE:
-        FillLastColumn(GetDlgItem(dlg, IDC_RL_LIST), 8);
+        FillColumns(GetDlgItem(dlg, IDC_RL_LIST), 9);
         return FALSE;
     PB_DARK_CTLCOLORS;
     case WM_NOTIFY:
@@ -601,6 +625,7 @@ INT_PTR CALLBACK RulesDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
         {
             if (g_profile.ruleCount >= PB_MAX_RULE) { MessageBoxW(dlg, L"Rule limit reached.", APP_TITLE, MB_OK); return TRUE; }
             PBRule r; ZeroMemory(&r, sizeof(r));
+            lstrcpynW(r.name, L"ProxyBridge Rule", 128);
             lstrcpynW(r.proc, L"*", 256); lstrcpynW(r.hosts, L"*", 256);
             lstrcpynW(r.ports, L"*", 128); lstrcpynW(r.domains, L"*", 256);
             lstrcpynW(r.proto, L"BOTH", 8); lstrcpynW(r.action, L"DIRECT", 16); r.enabled = 1;
@@ -729,7 +754,7 @@ static void InitFilterList(HWND lv)
     LVCOLUMNW c; c.mask = LVCF_TEXT | LVCF_WIDTH;
     for (int i = 0; i < 6; i++) { c.pszText = (LPWSTR)T(cols[i].s); c.cx = cols[i].w; ListView_InsertColumn(lv, i, &c); }
     SetWindowSubclass(lv, ListDarkSubProc, 3, 0);
-    FillLastColumn(lv, 6);
+    FillColumns(lv, 6);
 }
 static void RefreshFilterList(HWND lv)
 {

@@ -42,42 +42,44 @@ END
 // at runtime - there is no menu resource here on purpose.
 
 // Proxy Servers (list) dialog
-IDD_SERVERS DIALOGEX 0, 0, 340, 176
+IDD_SERVERS DIALOGEX 0, 0, 460, 200
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Proxy Servers"
 FONT 11, "Segoe UI", 400, 0, 0x0
 BEGIN
     CONTROL         "", IDC_SV_LIST, "SysListView32",
                     LVS_REPORT | LVS_SHOWSELALWAYS | LVS_SINGLESEL | WS_BORDER | WS_TABSTOP,
-                    8, 8, 258, 138
-    PUSHBUTTON      "Add...",     IDC_SV_ADD,    274,   8, 58, 15
-    PUSHBUTTON      "Edit...",    IDC_SV_EDIT,   274,  28, 58, 15
-    PUSHBUTTON      "Remove",     IDC_SV_REMOVE, 274,  48, 58, 15
-    PUSHBUTTON      "Proxy Test", IDC_SV_CHECK,  274,  72, 58, 15
-    DEFPUSHBUTTON   "Close",      IDCANCEL,      274, 155, 58, 15
+                    8, 8, 378, 162
+    PUSHBUTTON      "Add...",     IDC_SV_ADD,    394,   8, 58, 15
+    PUSHBUTTON      "Edit...",    IDC_SV_EDIT,   394,  28, 58, 15
+    PUSHBUTTON      "Remove",     IDC_SV_REMOVE, 394,  48, 58, 15
+    PUSHBUTTON      "Proxy Test", IDC_SV_CHECK,  394,  72, 58, 15
+    DEFPUSHBUTTON   "Close",      IDCANCEL,      394, 179, 58, 15
 END
 
 // Proxy Server (edit) sub-dialog
-IDD_SERVER DIALOGEX 0, 0, 244, 176
+IDD_SERVER DIALOGEX 0, 0, 320, 200
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Proxy Server"
 FONT 11, "Segoe UI", 400, 0, 0x0
 BEGIN
-    GROUPBOX        "Server",        IDC_SE_G_SERVER,  8,   6, 228, 66
-    LTEXT           "Address:",      IDC_SE_L_ADDR,   18,  24, 44, 10
-    EDITTEXT        IDC_SE_ADDR,     66,  22, 108, 12, ES_AUTOHSCROLL | WS_TABSTOP
-    LTEXT           "Port:",         IDC_SE_L_PORT,  182,  24, 20, 10
-    EDITTEXT        IDC_SE_PORT,    204,  22,  24, 12, ES_AUTOHSCROLL | ES_NUMBER | WS_TABSTOP
-    LTEXT           "Protocol:",     IDC_SE_L_PROTO,  18,  48, 44, 10
-    COMBOBOX        IDC_SE_PROTO,    66,  46, 108, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    GROUPBOX        "Authentication", IDC_SE_G_AUTH,  8,  80, 228, 66
-    AUTOCHECKBOX    "Enable",        IDC_SE_AUTH,     18,  96, 60, 10
-    LTEXT           "Username:",     IDC_SE_L_USER,   18, 114, 44, 10
-    EDITTEXT        IDC_SE_USER,     66, 112, 162, 12, ES_AUTOHSCROLL | WS_TABSTOP
-    LTEXT           "Password:",     IDC_SE_L_PASS,   18, 130, 44, 10
-    EDITTEXT        IDC_SE_PASS,     66, 128, 162, 12, ES_AUTOHSCROLL | ES_PASSWORD | WS_TABSTOP
-    DEFPUSHBUTTON   "OK",            IDOK,           128, 156, 50, 14
-    PUSHBUTTON      "Cancel",        IDCANCEL,       186, 156, 50, 14
+    LTEXT           "Name:",         IDC_SE_L_NAME,    8,  10, 44, 10
+    EDITTEXT        IDC_SE_NAME,     56,   8, 256, 12, ES_AUTOHSCROLL | WS_TABSTOP
+    GROUPBOX        "Server",        IDC_SE_G_SERVER,  8,  28, 304, 66
+    LTEXT           "Address:",      IDC_SE_L_ADDR,   18,  46, 44, 10
+    EDITTEXT        IDC_SE_ADDR,     66,  44, 168, 12, ES_AUTOHSCROLL | WS_TABSTOP
+    LTEXT           "Port:",         IDC_SE_L_PORT,  244,  46, 20, 10
+    EDITTEXT        IDC_SE_PORT,    268,  44,  36, 12, ES_AUTOHSCROLL | ES_NUMBER | WS_TABSTOP
+    LTEXT           "Protocol:",     IDC_SE_L_PROTO,  18,  70, 44, 10
+    COMBOBOX        IDC_SE_PROTO,    66,  68, 168, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "Authentication", IDC_SE_G_AUTH,  8, 102, 304, 66
+    AUTOCHECKBOX    "Enable",        IDC_SE_AUTH,     18, 118, 60, 10
+    LTEXT           "Username:",     IDC_SE_L_USER,   18, 136, 44, 10
+    EDITTEXT        IDC_SE_USER,     66, 134, 238, 12, ES_AUTOHSCROLL | WS_TABSTOP
+    LTEXT           "Password:",     IDC_SE_L_PASS,   18, 152, 44, 10
+    EDITTEXT        IDC_SE_PASS,     66, 150, 238, 12, ES_AUTOHSCROLL | ES_PASSWORD | WS_TABSTOP
+    DEFPUSHBUTTON   "OK",            IDOK,           204, 180, 50, 14
+    PUSHBUTTON      "Cancel",        IDCANCEL,       262, 180, 50, 14
 END
 
 // Proxy Checker dialog
@@ -97,7 +99,7 @@ BEGIN
 END
 
 // Proxification Rules (list) dialog
-IDD_RULES DIALOGEX 0, 0, 540, 300
+IDD_RULES DIALOGEX 0, 0, 640, 320
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Proxy Rules"
 FONT 11, "Segoe UI", 400, 0, 0x0
@@ -108,47 +110,50 @@ BEGIN
     PUSHBUTTON      "Remove",    IDC_RL_REMOVE,200,   8, 60, 16
     CONTROL         "", IDC_RL_LIST, "SysListView32",
                     LVS_REPORT | LVS_SHOWSELALWAYS | LVS_SINGLESEL | WS_BORDER | WS_TABSTOP,
-                    8, 30, 500, 232
-    PUSHBUTTON      "Move Up",   IDC_RL_UP,   516,  30, 18, 16
-    PUSHBUTTON      "Move Down", IDC_RL_DOWN, 516,  52, 18, 16
+                    8, 30, 600, 252
+    PUSHBUTTON      "Move Up",   IDC_RL_UP,   616,  30, 18, 16
+    PUSHBUTTON      "Move Down", IDC_RL_DOWN, 616,  52, 18, 16
     LTEXT           "Rules are checked top to bottom; use the check box to enable/disable a rule.",
-                    IDC_RL_HINT,  8, 270, 400, 11
-    DEFPUSHBUTTON   "Close",     IDCANCEL,    456, 278, 60, 16
+                    IDC_RL_HINT,  8, 290, 480, 11
+    DEFPUSHBUTTON   "Close",     IDCANCEL,    572, 298, 60, 16
 END
 
 // Proxification Rule (edit) sub-dialog
-IDD_RULE DIALOGEX 0, 0, 400, 272
+IDD_RULE DIALOGEX 0, 0, 480, 294
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Proxy Rule"
 FONT 11, "Segoe UI", 400, 0, 0x0
 BEGIN
-    AUTOCHECKBOX    "Enabled",         IDC_RE_ENABLED,  330,  10, 62, 10
-    LTEXT           "Applications:",   IDC_RE_L_APPS,     8,  10, 80, 10
-    EDITTEXT        IDC_RE_APPS,       92,   8, 176, 13, ES_AUTOHSCROLL | WS_TABSTOP
-    PUSHBUTTON      "Browse...",       IDC_RE_BROWSE,   272,   7, 50, 14
-    LTEXT           "",                IDC_RE_EX_APPS,   92,  24, 300, 9
+    LTEXT           "Name:",           IDC_RE_L_NAME,     8,  10, 80, 10
+    EDITTEXT        IDC_RE_NAME,       92,   8, 306, 13, ES_AUTOHSCROLL | WS_TABSTOP
+    AUTOCHECKBOX    "Enabled",         IDC_RE_ENABLED,  410,  10, 62, 10
 
-    LTEXT           "Target Hosts:",   IDC_RE_L_HOSTS,    8,  40, 80, 10
-    EDITTEXT        IDC_RE_HOSTS,      92,  38, 300, 13, ES_AUTOHSCROLL | WS_TABSTOP
-    LTEXT           "",                IDC_RE_EX_HOSTS,  92,  54, 300, 9
+    LTEXT           "Applications:",   IDC_RE_L_APPS,     8,  32, 80, 10
+    EDITTEXT        IDC_RE_APPS,       92,  30, 316, 13, ES_AUTOHSCROLL | WS_TABSTOP
+    PUSHBUTTON      "Browse...",       IDC_RE_BROWSE,   412,  29, 60, 14
+    LTEXT           "",                IDC_RE_EX_APPS,   92,  46, 380, 9
 
-    LTEXT           "Target Ports:",   IDC_RE_L_PORTS,    8,  70, 80, 10
-    EDITTEXT        IDC_RE_PORTS,      92,  68, 300, 13, ES_AUTOHSCROLL | WS_TABSTOP
-    LTEXT           "",                IDC_RE_EX_PORTS,  92,  84, 300, 9
+    LTEXT           "Target Hosts:",   IDC_RE_L_HOSTS,    8,  62, 80, 10
+    EDITTEXT        IDC_RE_HOSTS,      92,  60, 380, 13, ES_AUTOHSCROLL | WS_TABSTOP
+    LTEXT           "",                IDC_RE_EX_HOSTS,  92,  76, 380, 9
 
-    LTEXT           "Target Domains:", IDC_RE_L_DOMAINS,  8, 100, 80, 10
-    EDITTEXT        IDC_RE_DOMAINS,    92,  98, 300, 13, ES_AUTOHSCROLL | WS_TABSTOP
-    LTEXT           "",                IDC_RE_EX_DOMAINS,92, 114, 300, 9
+    LTEXT           "Target Ports:",   IDC_RE_L_PORTS,    8,  92, 80, 10
+    EDITTEXT        IDC_RE_PORTS,      92,  90, 380, 13, ES_AUTOHSCROLL | WS_TABSTOP
+    LTEXT           "",                IDC_RE_EX_PORTS,  92, 106, 380, 9
 
-    LTEXT           "Protocol:",       IDC_RE_L_PROTO,    8, 130, 80, 10
-    COMBOBOX        IDC_RE_PROTO,      92, 128, 110, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "",                IDC_RE_UDPNOTE,   92, 146, 300, 40
+    LTEXT           "Target Domains:", IDC_RE_L_DOMAINS,  8, 122, 80, 10
+    EDITTEXT        IDC_RE_DOMAINS,    92, 120, 380, 13, ES_AUTOHSCROLL | WS_TABSTOP
+    LTEXT           "",                IDC_RE_EX_DOMAINS,92, 136, 380, 9
 
-    LTEXT           "Action:",         IDC_RE_L_ACTION,   8, 192, 80, 10
-    COMBOBOX        IDC_RE_ACTION,     92, 190, 300,160, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Protocol:",       IDC_RE_L_PROTO,    8, 152, 80, 10
+    COMBOBOX        IDC_RE_PROTO,      92, 150, 120, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "",                IDC_RE_UDPNOTE,   92, 168, 380, 40
 
-    DEFPUSHBUTTON   "OK",              IDOK,            282, 250, 52, 14
-    PUSHBUTTON      "Cancel",          IDCANCEL,        338, 250, 52, 14
+    LTEXT           "Action:",         IDC_RE_L_ACTION,   8, 214, 80, 10
+    COMBOBOX        IDC_RE_ACTION,     92, 212, 380,160, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+
+    DEFPUSHBUTTON   "OK",              IDOK,            362, 272, 52, 14
+    PUSHBUTTON      "Cancel",          IDCANCEL,        418, 272, 52, 14
 END
 
 // Log Filters (list) dialog
