@@ -5,10 +5,13 @@ import UniformTypeIdentifiers
 struct ProxyBridgeGUIApp: App {
     @StateObject private var viewModel = ProxyBridgeViewModel()
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    
+    // when on, closing the window hides the app to the menu bar instead of quitting
+    @AppStorage("closeToMenuBar") private var closeToMenuBar = false
+
     var body: some Scene {
         WindowGroup {
             ContentView(viewModel: viewModel)
+                .background(WindowAccessor())
                 .onAppear {
                     AppDelegate.viewModel = viewModel
                     checkForUpdatesOnStartup()
@@ -77,6 +80,10 @@ struct ProxyBridgeGUIApp: App {
                 Button("Import Profile...") {
                     importProfileFromFile()
                 }
+            }
+
+            CommandMenu("Settings") {
+                Toggle("Close to Menu Bar", isOn: $closeToMenuBar)
             }
 
             CommandGroup(replacing: .help) {
@@ -196,19 +203,67 @@ struct ProxyBridgeGUIApp: App {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     static var viewModel: ProxyBridgeViewModel?
     static var pendingUpdateInfo: VersionInfo?
-    
+    static weak var shared: AppDelegate?
+    static weak var mainWindow: NSWindow?
+
+    private var statusItem: NSStatusItem?
+
+    private var closeToMenuBar: Bool { UserDefaults.standard.bool(forKey: "closeToMenuBar") }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        AppDelegate.shared = self
+        setupStatusItem()
+    }
+
+    // if close-to-menu-bar is off, quitting on last window close matches the
+    // windows "close = exit" behavior. when on, the window only hides so this
+    // never fires.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return !closeToMenuBar
+    }
+
+    // the window's close button, hide to the menu bar instead of closing when enabled
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard closeToMenuBar else { return true }
+        sender.orderOut(nil)
+        NSApp.setActivationPolicy(.accessory)  // drop the dock icon, live in the menu bar
+        return false
+    }
+
+    private func setupStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        item.button?.image = NSImage(systemSymbolName: "network", accessibilityDescription: "ProxyBridge")
+
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: "Open ProxyBridge", action: #selector(showMainWindow), keyEquivalent: ""))
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "Quit ProxyBridge", action: #selector(quitApp), keyEquivalent: "q"))
+        item.menu = menu
+        statusItem = item
+    }
+
+    @objc private func showMainWindow() {
+        NSApp.setActivationPolicy(.regular)
+        AppDelegate.mainWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func quitApp() {
+        NSApp.terminate(nil)
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         // Clear extension memory before app quits
         AppDelegate.viewModel?.stopProxy()
-        
+
         // Give time for memory clearing to complete
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             NSApp.reply(toApplicationShouldTerminate: true)
         }
-        
+
         return .terminateLater
     }
     
@@ -263,5 +318,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window.makeKeyAndOrderFront(nil)
         }
     }
+}
+
+// grabs the main SwiftUI window so the app delegate can intercept its close
+struct WindowAccessor: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            guard let window = view.window else { return }
+            AppDelegate.mainWindow = window
+            window.delegate = AppDelegate.shared
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
