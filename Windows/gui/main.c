@@ -81,6 +81,11 @@ typedef void (WINAPI *fnFlushMenuThemes)(void);
 static PBApi     g_api;
 static HWND      g_hMain, g_hTab, g_hConnLog, g_hActLog;
 static HWND      g_hConnSearch, g_hConnClear, g_hActSearch, g_hActClear;
+static HFONT     g_hIcon;                 // Segoe MDL2 Assets glyph font for the menu-bar icons
+static HFONT     g_hMenuFont;             // menu-bar font (owner-drawn top items => taller bar)
+static RECT      g_rcTbSet, g_rcTbRules;  // menu-bar icon hit-rects (window-relative)
+static int       g_tbHot = -1;            // hovered menu-bar icon: 0 = settings, 1 = rules
+#define MENUBAR_EXTRA 12                  // extra height added to the menu row
 #define IDC_CONN_SEARCH 3001
 #define IDC_CONN_CLEAR  3002
 #define IDC_ACT_SEARCH  3003
@@ -293,6 +298,21 @@ static void UpdateTitle(void)
     SetWindowTextW(g_hMain, t);
 }
 
+// Add an owner-drawn top-level menu item (so the menu row can be taller). The label pointer
+// (a stable T() string) is kept as item data (for WM_DRAWITEM) and as the string (so Alt
+// mnemonics still work).
+static void AppendTopMenu(HMENU bar, HMENU sub, const wchar_t* label)
+{
+    MENUITEMINFOW mii; ZeroMemory(&mii, sizeof(mii)); mii.cbSize = sizeof(mii);
+    mii.fMask = MIIM_FTYPE | MIIM_SUBMENU | MIIM_DATA | MIIM_STRING;
+    mii.fType = MFT_OWNERDRAW;
+    mii.hSubMenu = sub;
+    mii.dwItemData = (ULONG_PTR)label;
+    mii.dwTypeData = (LPWSTR)label;
+    mii.cch = (UINT)lstrlenW(label);
+    InsertMenuItemW(bar, GetMenuItemCount(bar), TRUE, &mii);
+}
+
 // Builds the whole menu bar from the string table so a language switch can rebuild it live.
 static void BuildMainMenu(HWND hwnd)
 {
@@ -302,7 +322,7 @@ static void BuildMainMenu(HWND hwnd)
     AppendMenuW(proxy, MF_STRING, IDM_PROXY_SETTINGS, T(S_M_PROXY_SETTINGS));
     AppendMenuW(proxy, MF_STRING, IDM_PROXY_RULES,    T(S_M_PROXY_RULES));
     AppendMenuW(proxy, MF_STRING, IDM_LOG_FILTERS,    T(S_M_LOGFILTERS));
-    AppendMenuW(bar, MF_POPUP, (UINT_PTR)proxy, T(S_M_PROXY));
+    AppendTopMenu(bar, proxy, T(S_M_PROXY));
 
     HMENU profile = CreatePopupMenu();
     AppendMenuW(profile, MF_STRING, IDM_PROFILE_NEW,    T(S_M_NEWPROFILE));
@@ -314,7 +334,7 @@ static void BuildMainMenu(HWND hwnd)
     AppendMenuW(profile, MF_SEPARATOR, 0, NULL);
     g_switchMenu = CreatePopupMenu();
     AppendMenuW(profile, MF_POPUP, (UINT_PTR)g_switchMenu, T(S_M_SWITCH));
-    AppendMenuW(bar, MF_POPUP, (UINT_PTR)profile, T(S_M_PROFILE));
+    AppendTopMenu(bar, profile, T(S_M_PROFILE));
 
     HMENU settings = CreatePopupMenu();
     AppendMenuW(settings, MF_STRING, IDM_SET_LOCALHOST,   T(S_M_LOCALHOST));
@@ -327,14 +347,14 @@ static void BuildMainMenu(HWND hwnd)
     AppendMenuW(lang, MF_STRING, IDM_LANG_EN, T(S_M_LANG_EN));
     AppendMenuW(lang, MF_STRING, IDM_LANG_ZH, T(S_M_LANG_ZH));
     AppendMenuW(settings, MF_POPUP, (UINT_PTR)lang, T(S_M_LANG));
-    AppendMenuW(bar, MF_POPUP, (UINT_PTR)settings, T(S_M_SETTINGS));
+    AppendTopMenu(bar, settings, T(S_M_SETTINGS));
 
     HMENU help = CreatePopupMenu();
     AppendMenuW(help, MF_STRING, IDM_HELP_DOCS,   T(S_M_DOCS));
     AppendMenuW(help, MF_STRING, IDM_HELP_UPDATE, T(S_M_UPDATE));
     AppendMenuW(help, MF_SEPARATOR, 0, NULL);
     AppendMenuW(help, MF_STRING, IDM_HELP_ABOUT,  T(S_M_ABOUT));
-    AppendMenuW(bar, MF_POPUP, (UINT_PTR)help, T(S_M_HELP));
+    AppendTopMenu(bar, help, T(S_M_HELP));
 
     HMENU old = GetMenu(hwnd);
     SetMenu(hwnd, bar);
@@ -446,6 +466,57 @@ static BOOL PickFile(HWND owner, BOOL save, wchar_t* path, int cch)
 // update checker (split out)
 #include "ui/update.h"
 
+// Fully paints the (non-client, owner-drawn) menu bar dark: fills the bar, redraws each
+// top-item label, and draws the two quick-access glyph icons right after the last item.
+// Records the icon rects for hit-testing. Called on WM_NCPAINT / WM_NCACTIVATE / WM_SIZE.
+static void DrawMenuBar2(HWND hwnd)
+{
+    if (!g_hMenuFont) return;
+    HMENU bar = GetMenu(hwnd);
+    MENUBARINFO mbi; mbi.cbSize = sizeof(mbi);
+    if (!bar || !GetMenuBarInfo(hwnd, OBJID_MENU, 0, &mbi)) return;
+    RECT wr; GetWindowRect(hwnd, &wr);
+    RECT br = mbi.rcBar; OffsetRect(&br, -wr.left, -wr.top);
+    int barH = br.bottom - br.top;
+    if (barH <= 0) return;
+
+    HDC dc = GetWindowDC(hwnd);
+    FillRect(dc, &br, g_brMenu);                       // whole bar dark
+
+    HFONT of = (HFONT)SelectObject(dc, g_hMenuFont);
+    SetBkMode(dc, TRANSPARENT);
+    int count = GetMenuItemCount(bar);
+    int lastRight = br.left + 8;
+    for (int i = 0; i < count; i++)
+    {
+        RECT ir; if (!GetMenuItemRect(hwnd, bar, i, &ir)) continue;
+        OffsetRect(&ir, -wr.left, -wr.top);
+        wchar_t txt[64] = {0};
+        MENUITEMINFOW mii; mii.cbSize = sizeof(mii); mii.fMask = MIIM_STRING;
+        mii.dwTypeData = txt; mii.cch = 64;
+        GetMenuItemInfoW(bar, i, TRUE, &mii);
+        SetTextColor(dc, C_TEXT);
+        DrawTextW(dc, txt, -1, &ir, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_HIDEPREFIX);
+        if (ir.right > lastRight) lastRight = ir.right;
+    }
+
+    int iw = barH;                                     // square icon cells
+    int startX = lastRight + 10;
+    SetRect(&g_rcTbSet,   startX,          br.top, startX + iw,          br.top + barH);
+    SetRect(&g_rcTbRules, startX + iw + 2, br.top, startX + iw + 2 + iw, br.top + barH);
+    SelectObject(dc, g_hIcon);
+    const wchar_t* glyph[2] = { L"\xE713", L"\xE8FD" }; // gear, list
+    RECT* r[2] = { &g_rcTbSet, &g_rcTbRules };
+    for (int i = 0; i < 2; i++)
+    {
+        FillRect(dc, r[i], (g_tbHot == i) ? g_brMenuHot : g_brMenu);
+        SetTextColor(dc, (g_tbHot == i) ? C_TEXT : C_DIM);
+        DrawTextW(dc, glyph[i], -1, r[i], DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+    SelectObject(dc, of);
+    ReleaseDC(hwnd, dc);
+}
+
 // main window proc
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
@@ -490,6 +561,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         g_connStore.edit = g_hConnLog;
         g_actStore.edit  = g_hActLog;
 
+        // Menu-bar quick-access icons are drawn on the (non-client) menu bar in WM_NCPAINT;
+        // this is their glyph font. The menu-bar font is used to owner-draw the top-level
+        // items so the menu row can be a bit taller.
+        g_hIcon = CreateFontW(-18, 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET,
+                              OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                              DEFAULT_PITCH | FF_DONTCARE, L"Segoe MDL2 Assets");
+        NONCLIENTMETRICSW ncm; ncm.cbSize = sizeof(ncm);
+        if (SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0))
+            g_hMenuFont = CreateFontIndirectW(&ncm.lfMenuFont);
+
         // Dark theme: elevate to immersive dark mode, dark scrollbars on the log edits,
         // and hover tracking for the owner-drawn tabs.
         InitDarkMode(hwnd);
@@ -501,7 +582,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         LayoutMain(hwnd); SelectTab(0);
         return 0;
     }
-    case WM_SIZE:  LayoutMain(hwnd); return 0;
+    case WM_SIZE:  LayoutMain(hwnd); DrawMenuBar2(hwnd); return 0;
     case WM_CTLCOLOREDIT:
     case WM_CTLCOLORLISTBOX:
     case WM_CTLCOLORBTN:
@@ -512,9 +593,43 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         SetBkColor(dc, C_BG);
         return (LRESULT)g_brBg;
     }
+    case WM_MEASUREITEM:
+    {
+        MEASUREITEMSTRUCT* mis = (MEASUREITEMSTRUCT*)lp;
+        if (mis->CtlType == ODT_MENU)
+        {
+            const wchar_t* s = (const wchar_t*)mis->itemData;
+            wchar_t clean[64]; int j = 0;                 // measure visible text (drop '&')
+            for (const wchar_t* p = s; p && *p && j < 63; p++) if (*p != L'&') clean[j++] = *p;
+            clean[j] = 0;
+            HDC dc = GetDC(hwnd);
+            HFONT of = (HFONT)SelectObject(dc, g_hMenuFont ? g_hMenuFont : g_hUi);
+            SIZE sz = {0}; GetTextExtentPoint32W(dc, clean, j, &sz);
+            TEXTMETRICW tm; GetTextMetricsW(dc, &tm);
+            SelectObject(dc, of); ReleaseDC(hwnd, dc);
+            mis->itemWidth  = sz.cx + 16;                 // tight, normal-looking padding
+            mis->itemHeight = tm.tmHeight + MENUBAR_EXTRA; // taller row
+            return TRUE;
+        }
+        break;
+    }
     case WM_DRAWITEM:
     {
         LPDRAWITEMSTRUCT d = (LPDRAWITEMSTRUCT)lp;
+        if (d->CtlType == ODT_MENU)   // hover state while a top menu is highlighted
+        {
+            const wchar_t* txt = (const wchar_t*)d->itemData;
+            BOOL hot = (d->itemState & (ODS_SELECTED | ODS_HOTLIGHT)) != 0;
+            FillRect(d->hDC, &d->rcItem, hot ? g_brMenuHot : g_brMenu);
+            SetBkMode(d->hDC, TRANSPARENT);
+            SetTextColor(d->hDC, C_TEXT);
+            HFONT of = (HFONT)SelectObject(d->hDC, g_hMenuFont ? g_hMenuFont : g_hUi);
+            UINT f = DT_CENTER | DT_VCENTER | DT_SINGLELINE;
+            if (d->itemState & ODS_NOACCEL) f |= DT_HIDEPREFIX;
+            DrawTextW(d->hDC, txt ? txt : L"", -1, &d->rcItem, f);
+            SelectObject(d->hDC, of);
+            return TRUE;
+        }
         if (d->CtlType == ODT_TAB || d->hwndItem == g_hTab)
         {
             BOOL sel = (d->itemState & ODS_SELECTED) != 0;
@@ -565,7 +680,32 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     {
         LRESULT r = DefWindowProcW(hwnd, msg, wp, lp);
         PaintMenuBottomLine(hwnd);
+        DrawMenuBar2(hwnd);
         return r;
+    }
+    case WM_NCMOUSEMOVE:
+    {
+        RECT wr; GetWindowRect(hwnd, &wr);
+        POINT p = { GET_X_LPARAM(lp) - wr.left, GET_Y_LPARAM(lp) - wr.top };
+        int hot = PtInRect(&g_rcTbSet, p) ? 0 : (PtInRect(&g_rcTbRules, p) ? 1 : -1);
+        if (hot != g_tbHot)
+        {
+            g_tbHot = hot; DrawMenuBar2(hwnd);
+            TRACKMOUSEEVENT tme = { sizeof(tme), TME_LEAVE | TME_NONCLIENT, hwnd, 0 };
+            TrackMouseEvent(&tme);
+        }
+        break;
+    }
+    case WM_NCMOUSELEAVE:
+        if (g_tbHot != -1) { g_tbHot = -1; DrawMenuBar2(hwnd); }
+        break;
+    case WM_NCLBUTTONDOWN:
+    {
+        RECT wr; GetWindowRect(hwnd, &wr);
+        POINT p = { GET_X_LPARAM(lp) - wr.left, GET_Y_LPARAM(lp) - wr.top };
+        if (PtInRect(&g_rcTbSet, p))   { SendMessageW(hwnd, WM_COMMAND, IDM_PROXY_SETTINGS, 0); return 0; }
+        if (PtInRect(&g_rcTbRules, p)) { SendMessageW(hwnd, WM_COMMAND, IDM_PROXY_RULES, 0);    return 0; }
+        break;
     }
     case WM_NOTIFY:
     {
@@ -732,6 +872,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         LogStoreClear(&g_actStore);
         if (g_hMono) DeleteObject(g_hMono);
         if (g_hUi)   DeleteObject(g_hUi);
+        if (g_hIcon) DeleteObject(g_hIcon);
+        if (g_hMenuFont) DeleteObject(g_hMenuFont);
         if (g_brBg)     DeleteObject(g_brBg);
         if (g_brPanel)  DeleteObject(g_brPanel);
         if (g_brTab)    DeleteObject(g_brTab);

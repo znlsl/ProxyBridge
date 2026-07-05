@@ -22,7 +22,8 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName",      "InterceptSuite"
-            VALUE "FileDescription",  "Universal proxy client for Windows applications"
+            VALUE "FileDescription",  "ProxyBridge"
+            VALUE "Comments",         "Universal proxy client for Windows applications"
             VALUE "FileVersion",      PB_VER_STR
             VALUE "InternalName",     "ProxyBridge"
             VALUE "OriginalFilename", "ProxyBridge.exe"
