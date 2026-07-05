@@ -1,5 +1,4 @@
 import SwiftUI
-import Darwin
 
 struct ProxySettingsView: View {
     @ObservedObject var viewModel: ProxyBridgeViewModel
@@ -8,8 +7,8 @@ struct ProxySettingsView: View {
     @State private var showAddProxy = false
     @State private var editingConfig: ProxyBridgeViewModel.ProxyConfig?
     @State private var deletingConfig: ProxyBridgeViewModel.ProxyConfig?
+    @State private var checkingConfig: ProxyBridgeViewModel.ProxyConfig?
     @State private var affectedRulesCount = 0
-    @State private var testResults: [String: String] = [:]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,6 +40,9 @@ struct ProxySettingsView: View {
         }
         .sheet(item: $editingConfig) { config in
             ProxyConfigEditorView(viewModel: viewModel, existing: config)
+        }
+        .sheet(item: $checkingConfig) { config in
+            ProxyCheckerView(config: config)
         }
     }
 
@@ -116,19 +118,12 @@ struct ProxySettingsView: View {
                 .width(40)
 
                 TableColumn("Test") { config in
-                    HStack(spacing: 6) {
-                        Button(action: { testConnection(config) }) {
-                            Label("Test", systemImage: "link")
-                        }
-                        .buttonStyle(.borderless)
-                        if let result = testResults[config.id] {
-                            Text(result)
-                                .font(.caption2)
-                                .foregroundColor(result == "OK" ? .green : .red)
-                        }
+                    Button(action: { checkingConfig = config }) {
+                        Label("Test", systemImage: "bolt.horizontal")
                     }
+                    .buttonStyle(.borderless)
                 }
-                .width(min: 80, ideal: 100)
+                .width(min: 60, ideal: 80)
 
                 TableColumn("") { config in
                     HStack(spacing: 12) {
@@ -171,44 +166,6 @@ struct ProxySettingsView: View {
 
     private func typeColor(_ type: String) -> Color {
         type.lowercased() == "socks5" ? .cyan : .orange
-    }
-
-    private func testConnection(_ config: ProxyBridgeViewModel.ProxyConfig) {
-        testResults[config.id] = "..."
-        DispatchQueue.global().async {
-            let result = checkTCPReachability(host: config.host, port: config.port)
-            DispatchQueue.main.async {
-                testResults[config.id] = result ? "OK" : "FAIL"
-            }
-        }
-    }
-
-    private func checkTCPReachability(host: String, port: Int) -> Bool {
-        // getaddrinfo handles ipv4, ipv6 and hostnames, so this works for any proxy
-        var hints = addrinfo()
-        hints.ai_family = AF_UNSPEC
-        hints.ai_socktype = SOCK_STREAM
-
-        var result: UnsafeMutablePointer<addrinfo>?
-        guard getaddrinfo(host, String(port), &hints, &result) == 0 else { return false }
-        defer { freeaddrinfo(result) }
-
-        var candidate = result
-        while let addr = candidate {
-            let sock = socket(addr.pointee.ai_family, addr.pointee.ai_socktype, addr.pointee.ai_protocol)
-            if sock >= 0 {
-                // bound connect time so an unreachable host doesn't hang the test
-                var timeout = timeval(tv_sec: 3, tv_usec: 0)
-                setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
-                if connect(sock, addr.pointee.ai_addr, addr.pointee.ai_addrlen) == 0 {
-                    Darwin.close(sock)
-                    return true
-                }
-                Darwin.close(sock)
-            }
-            candidate = addr.pointee.ai_next
-        }
-        return false
     }
 }
 
