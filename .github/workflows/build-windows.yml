@@ -21,9 +21,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-    # No .NET or MSVC setup action needed - the GUI/CLI/core are native C built with cl.exe,
-    # which compile.ps1 auto-detects via vswhere.exe (pre-installed on windows-latest runners).
-
     - name: Install NSIS
       run: |
         choco install nsis -y

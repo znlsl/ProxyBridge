@@ -986,7 +986,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, PWSTR cmd, int show)
     UpdateTitle();
 
     // Wire callbacks + toggles, add configs (before Start so the UDP relay starts), start,
-    // then add rules - mirroring the C# startup order.
+    // then add rules.
     g_api.SetLocalhostViaProxy(g_localhost);
     g_api.SetTrafficLoggingEnabled(g_trafficLog);
     g_api.SetLogCallback(PBLogCb);

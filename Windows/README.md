@@ -404,7 +404,6 @@ Case 2: Packet match with proxy rule
 - Administrator privileges (required for WinDivert driver)
 - Visual Studio 2019 or later (MSVC - recommended) **or** MinGW-w64 (GCC)
 - WinDivert 2.2.2-A or later
-- .NET 10 SDK (for the GUI)
 
 ### Using the PowerShell Build Script (Recommended)
 
