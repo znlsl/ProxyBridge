@@ -1676,7 +1676,7 @@ static void* udp_relay_server(void *arg)
             ssize_t peek_len = recv(socks5_udp_control_socket, peek_buf, 1, MSG_PEEK | MSG_DONTWAIT);
             if (peek_len == 0 || (peek_len < 0 && errno != EAGAIN && errno != EWOULDBLOCK))
             {
-                // tcp died — tear down and reconnect immediately so real-time streams
+                // tcp died - tear down and reconnect immediately so real-time streams
                 // lose as few packets as possible.
                 teardown_udp_associate();
                 udp_associate_connected = establish_udp_associate();
@@ -1726,7 +1726,7 @@ static void* udp_relay_server(void *arg)
 
             if (sent < 0)
             {
-                // sendto failed — proxy likely died.  Tear down, reconnect immediately
+                // sendto failed - proxy likely died.  Tear down, reconnect immediately
                 // and retry the current packet so real-time streams lose at most one packet.
                 teardown_udp_associate();
                 if (establish_udp_associate())

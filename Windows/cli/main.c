@@ -16,7 +16,7 @@
 #pragma comment(lib, "advapi32.lib")
 
 
-#define VERSION "4.0.0"
+#define VERSION "4.0.9-Beta"
 #define MAX_PROXY_CONFIGS 16
 #define MAX_RULES         256
 
@@ -24,7 +24,8 @@
 typedef uint32_t (*pfnAddProxyConfig)(int type, const char* ip, uint16_t port,
                                       const char* user, const char* pass);
 typedef uint32_t (*pfnAddRule)(const char* process, const char* hosts,
-                               const char* ports, int protocol, int action,
+                               const char* ports, const char* domains,
+                               int protocol, int action,
                                uint32_t config_id);
 typedef int  (*pfnDisableRule)(uint32_t rule_id);
 typedef void (*pfnSetLogCallback)(void (*cb)(const char*));
@@ -60,6 +61,7 @@ typedef struct {
     char     process_name[256];
     char     target_hosts[512];
     char     target_ports[256];
+    char     target_domains[512];  // "*", "google.com", "*.google.com;*.gstatic.com"
     int      protocol;        // 0=TCP, 1=UDP, 2=BOTH
     int      action;          // 0=PROXY, 1=DIRECT, 2=BLOCK
     int      is_enabled;
@@ -369,6 +371,7 @@ static bool load_profile(const char* path, PBProfile* prof)
             jstr(buf, "ProcessName", r->process_name, sizeof(r->process_name));
             jstr(buf, "TargetHosts", r->target_hosts,  sizeof(r->target_hosts));
             jstr(buf, "TargetPorts", r->target_ports,  sizeof(r->target_ports));
+            jstr(buf, "TargetDomains", r->target_domains, sizeof(r->target_domains));
 
             char ps[16] = {0};
             jstr(buf, "Protocol", ps, sizeof(ps));
@@ -919,11 +922,12 @@ int main(int argc, char* argv[])
                 dll_cfg_id = id_map[0].dll_id; // fallback: first config
         }
 
-        const char* proc  = r->process_name[0] ? r->process_name : "*";
-        const char* hosts = r->target_hosts[0]  ? r->target_hosts  : "*";
-        const char* ports = r->target_ports[0]  ? r->target_ports  : "*";
+        const char* proc    = r->process_name[0]   ? r->process_name   : "*";
+        const char* hosts   = r->target_hosts[0]   ? r->target_hosts   : "*";
+        const char* ports   = r->target_ports[0]   ? r->target_ports   : "*";
+        const char* domains = r->target_domains[0] ? r->target_domains : "*";
 
-        uint32_t rid = g_AddRule(proc, hosts, ports,
+        uint32_t rid = g_AddRule(proc, hosts, ports, domains,
                                  r->protocol, r->action, dll_cfg_id);
         if (rid == 0)
         {
@@ -938,8 +942,8 @@ int main(int argc, char* argv[])
 
         int p = r->protocol < 3 ? r->protocol : 0;
         int a = r->action    < 3 ? r->action    : 0;
-        printf("  [%d] %-28s %-22s %-14s %s  %s%s\n",
-               i + 1, proc, hosts, ports,
+        printf("  [%d] %-28s %-22s %-14s %-20s %s  %s%s\n",
+               i + 1, proc, hosts, ports, domains,
                PROTO[p], ACTION[a],
                r->is_enabled ? "" : "  [disabled]");
         ok++;

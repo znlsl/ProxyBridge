@@ -1,5 +1,5 @@
 !define PRODUCT_NAME "ProxyBridge"
-!define PRODUCT_VERSION "4.0.0"
+!define PRODUCT_VERSION "4.0.9-Beta"
 !define PRODUCT_PUBLISHER "InterceptSuite"
 !define PRODUCT_WEB_SITE "https://github.com/InterceptSuite/ProxyBridge"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
@@ -8,7 +8,7 @@
 Unicode True
 
 ; Version Information
-VIProductVersion "4.0.6.0"
+VIProductVersion "4.0.9.0"
 VIAddVersionKey "ProductName" "${PRODUCT_NAME}"
 VIAddVersionKey "ProductVersion" "${PRODUCT_VERSION}"
 VIAddVersionKey "CompanyName" "${PRODUCT_PUBLISHER}"
@@ -29,8 +29,8 @@ InstallDirRegKey HKLM "${PRODUCT_UNINST_KEY}" "InstallLocation"
 RequestExecutionLevel admin
 
 !define MUI_ABORTWARNING
-!define MUI_ICON "..\gui\Assets\logo.ico"
-!define MUI_UNICON "..\gui\Assets\logo.ico"
+!define MUI_ICON "..\gui\res\logo.ico"
+!define MUI_UNICON "..\gui\res\logo.ico"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "..\..\\LICENSE"
@@ -64,9 +64,6 @@ Section "MainSection" SEC01
   File "..\output\ProxyBridgeCore.dll"
   File "..\output\WinDivert.dll"
   File "..\output\WinDivert64.sys"
-  File "..\output\av_libglesv2.dll"
-  File "..\output\libHarfBuzzSharp.dll"
-  File "..\output\libSkiaSharp.dll"
 
   CreateDirectory "$SMPROGRAMS\${PRODUCT_NAME}"
   CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\ProxyBridge.exe"
@@ -98,9 +95,6 @@ Section Uninstall
   Delete "$INSTDIR\ProxyBridgeCore.dll"
   Delete "$INSTDIR\WinDivert.dll"
   Delete "$INSTDIR\WinDivert64.sys"
-  Delete "$INSTDIR\av_libglesv2.dll"
-  Delete "$INSTDIR\libHarfBuzzSharp.dll"
-  Delete "$INSTDIR\libSkiaSharp.dll"
   Delete "$INSTDIR\uninst.exe"
 
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk"
