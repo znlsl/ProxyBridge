@@ -94,13 +94,19 @@ static int       g_tbHot = -1;            // hovered menu-bar icon: 0 = settings
 // Per-log line store so the search box can filter without losing lines. New lines append to
 // the edit only when they match the active filter; changing the filter re-renders from here.
 #define LOG_MAX_LINES 4000
+#define LOG_PEND_MAX  8000
 typedef struct {
     HWND     edit;
     wchar_t* lines[LOG_MAX_LINES];
     int      count;
     wchar_t  filter[128];
+    wchar_t* pend[LOG_PEND_MAX];   // queued by native callback threads, drained by the UI timer
+    int      pendCount;
+    CRITICAL_SECTION lock;
 } LogStore;
 static LogStore g_connStore, g_actStore;
+#define TIMER_LOG 1                // batched log-flush timer
+static int g_idleTicks = 0;        // consecutive idle flushes (for working-set trim)
 static HFONT     g_hMono, g_hUi;
 static HINSTANCE g_hInst;
 static NOTIFYICONDATAW g_tray;
@@ -174,7 +180,7 @@ static void PBLogCb(const char* message)
     wchar_t ts[16]; GetTimePrefix(ts, 16);
     size_t n = wcslen(ts) + wcslen(body) + 3;
     wchar_t* line = (wchar_t*)malloc(n * sizeof(wchar_t));
-    if (line) { _snwprintf_s(line, n, _TRUNCATE, L"%s%s\r\n", ts, body); PostMessageW(g_hMain, WM_APP_LOG, 0, (LPARAM)line); }
+    if (line) { _snwprintf_s(line, n, _TRUNCATE, L"%s%s\r\n", ts, body); LogStoreQueue(&g_actStore, line); }
     free(body);
 }
 
@@ -199,7 +205,7 @@ static void PBConnCb(const char* proc, DWORD pid, const char* ip, unsigned short
     {
         _snwprintf_s(line, n, _TRUNCATE, L"%s%s (PID:%lu) -> %s:%u  via %s\r\n",
                    ts, wp ? wp : L"?", pid, wi ? wi : L"?", port, wf ? wf : L"?");
-        PostMessageW(g_hMain, WM_APP_CONN, 0, (LPARAM)line);
+        LogStoreQueue(&g_connStore, line);
     }
     free(wp); free(wi); free(wf);
 }
@@ -558,8 +564,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         SendMessageW(g_hActClear,   WM_SETFONT, (WPARAM)g_hUi, TRUE);
         SendMessageW(g_hConnSearch, EM_SETCUEBANNER, TRUE, (LPARAM)T(S_SEARCH_CUE));
         SendMessageW(g_hActSearch,  EM_SETCUEBANNER, TRUE, (LPARAM)T(S_SEARCH_CUE));
-        g_connStore.edit = g_hConnLog;
-        g_actStore.edit  = g_hActLog;
+        LogStoreInit(&g_connStore, g_hConnLog);
+        LogStoreInit(&g_actStore,  g_hActLog);
+        SetTimer(hwnd, TIMER_LOG, 200, NULL);   // batch log updates ~5x/sec
 
         // Menu-bar quick-access icons are drawn on the (non-client) menu bar in WM_NCPAINT;
         // this is their glyph font. The menu-bar font is used to owner-draw the top-level
@@ -713,8 +720,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         if (nh->hwndFrom == g_hTab && nh->code == TCN_SELCHANGE) SelectTab(TabCtrl_GetCurSel(g_hTab));
         return 0;
     }
-    case WM_APP_LOG:  { wchar_t* s = (wchar_t*)lp; if (s) { LogStoreAdd(&g_actStore, s);  free(s); } return 0; }
-    case WM_APP_CONN: { wchar_t* s = (wchar_t*)lp; if (s) { LogStoreAdd(&g_connStore, s); free(s); } return 0; }
+    case WM_TIMER:
+        if (wp == TIMER_LOG)
+        {
+            int processed = LogStoreFlush(&g_connStore) + LogStoreFlush(&g_actStore);
+            // When traffic has been idle for a couple of seconds, hand freed pages back to the
+            // OS so memory drops after a burst instead of staying pinned in the working set.
+            if (processed == 0) { if (++g_idleTicks == 10) SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1); }
+            else g_idleTicks = 0;
+        }
+        return 0;
     case WM_APP_UPDATE:
     {
         UpdInfo* info = (UpdInfo*)lp;
@@ -868,8 +883,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_DESTROY:
         if (g_api.Stop) g_api.Stop();
         TrayRemove();
-        LogStoreClear(&g_connStore);   // release the buffered log lines
-        LogStoreClear(&g_actStore);
+        KillTimer(hwnd, TIMER_LOG);
+        LogStoreFree(&g_connStore);    // release buffered + pending log lines + the lock
+        LogStoreFree(&g_actStore);
         if (g_hMono) DeleteObject(g_hMono);
         if (g_hUi)   DeleteObject(g_hUi);
         if (g_hIcon) DeleteObject(g_hIcon);

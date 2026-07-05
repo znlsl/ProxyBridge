@@ -267,7 +267,7 @@ class AppProxyProvider: NETransparentProxyProvider {
         let fullPath = String(cString: pathBuffer)
         let processName = (fullPath as NSString).lastPathComponent
         
-        // store in cache, evict everything if full — processes rarely hit this
+        // store in cache, evict everything if full - processes rarely hit this
         pidCacheLock.lock()
         if pidCache.count >= AppProxyProvider.pidCacheMaxSize {
             pidCache.removeAll(keepingCapacity: true)
@@ -1314,7 +1314,7 @@ class AppProxyProvider: NETransparentProxyProvider {
                     continue
                 }
                 
-                // pure wildcard, save it for later — only the first one
+                // pure wildcard, save it for later - only the first one
                 if wildcardRule == nil {
                     wildcardRule = rule
                 }

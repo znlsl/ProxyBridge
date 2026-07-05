@@ -289,7 +289,7 @@ static BOOL parse_token_list(const char *list, const char *delimiters, token_mat
         return TRUE;
 
     // strtok_s needs a writable copy. Use a stack buffer for the common (short) case and
-    // only fall back to malloc for unusually long lists — avoids a heap alloc on the
+    // only fall back to malloc for unusually long lists - avoids a heap alloc on the
     // packet thread for every rule that has a specific host/port filter.
     char   stackbuf[256];
     size_t len    = strnlen_s(list, MAX_LIST_SIZE) + 1;
@@ -339,7 +339,7 @@ static void configure_tcp_socket(SOCKET sock, int bufsize, DWORD timeout)
 }
 
 // connect() with a bounded timeout. A blocking connect() to an unreachable host stalls
-// for the OS SYN timeout (~21s on Windows), and the UDP relay runs on a single thread —
+// for the OS SYN timeout (~21s on Windows), and the UDP relay runs on a single thread -
 // so one dead/unreachable proxy config would freeze the whole relay (and delay real
 // packets) while it waits. This does a non-blocking connect + select so a dead proxy
 // fails in `timeout_ms` instead. Returns 0 on success, SOCKET_ERROR otherwise.
@@ -622,7 +622,7 @@ static DWORD WINAPI packet_processor(LPVOID arg)
                         PROXY_CONFIG *pc6u = find_proxy_config(pcid6u);
                         if (pc6u == NULL || pc6u->type != PROXY_TYPE_SOCKS5)
                         {
-                            // HTTP proxy can't relay UDP — drop
+                            // HTTP proxy can't relay UDP - drop
                             continue;
                         }
                         add_connection_v6(sp, (const UINT8*)ipv6_header->SrcAddr, (const UINT8*)ipv6_header->DstAddr, dp, pcid6u);
@@ -760,7 +760,7 @@ static DWORD WINAPI packet_processor(LPVOID arg)
                 UINT32 proxy_config_id6 = 0;
                 action6 = check_process_rule_v6((const UINT8*)ipv6_header->SrcAddr, sp, (const UINT8*)ipv6_header->DstAddr, dp, FALSE, &pid6, &proxy_config_id6);
 
-                // ::1 IPv6 loopback — use  same "Localhost via Proxy" toggle as IPv4 127.
+                // ::1 IPv6 loopback - use  same "Localhost via Proxy" toggle as IPv4 127.
                 if (action6 == RULE_ACTION_PROXY && !g_localhost_via_proxy)
                 {
                     const UINT8 *dst6 = (const UINT8*)ipv6_header->DstAddr;
@@ -885,7 +885,7 @@ static DWORD WINAPI packet_processor(LPVOID arg)
                         BYTE dst_first_octet = (ntohl(ip_header->DstAddr) >> 24) & 0xFF;
                         if (dst_first_octet != 127)
                             addr.Outbound = FALSE;
-                        // else: stay OUTBOUND — loopback echo delivers the packet
+                        // else: stay OUTBOUND - loopback echo delivers the packet
                     }
                     else
                     {
@@ -1532,9 +1532,9 @@ static BOOL is_ipv6_multicast_or_linklocal(const UINT8 ip6[16])
     if (ip6[0] == 0xFF) return TRUE;
     // Link-local: FE80::/10  (equivalent to IPv4 APIPA 169.254.0.0/16)
     if (ip6[0] == 0xFE && (ip6[1] & 0xC0) == 0x80) return TRUE;
-    // Site-local (deprecated RFC 3879): FEC0::/10 — still seen on old equipment
+    // Site-local (deprecated RFC 3879): FEC0::/10 - still seen on old equipment
     if (ip6[0] == 0xFE && (ip6[1] & 0xC0) == 0xC0) return TRUE;
-    // Unspecified address: :: (all-zeros) — equivalent to IPv4 0.0.0.0
+    // Unspecified address: :: (all-zeros) - equivalent to IPv4 0.0.0.0
     {
         static const UINT8 unspec[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
         if (memcmp(ip6, unspec, 16) == 0) return TRUE;
@@ -2073,7 +2073,7 @@ static BOOL is_broadcast_or_multicast(UINT32 ip)
 
 // Unified rule matching function for both TCP and UDP
 // Matches rules by process name, IP, port, and protocol
-// Inner matcher — caller MUST hold g_rules_lock (shared) for the whole traversal so
+// Inner matcher - caller MUST hold g_rules_lock (shared) for the whole traversal so
 // rules_list and the strings it points to cannot be freed/edited mid-match.
 static RuleAction match_rule_inner(const char *process_name, UINT32 dest_ip, UINT16 dest_port, BOOL is_udp, UINT32 *out_proxy_config_id)
 {
@@ -2175,7 +2175,7 @@ static RuleAction match_rule_inner(const char *process_name, UINT32 dest_ip, UIN
     return RULE_ACTION_DIRECT;
 }
 
-// Public matcher — takes the shared rules lock so a concurrent AddRule/EditRule/
+// Public matcher - takes the shared rules lock so a concurrent AddRule/EditRule/
 // DeleteRule/MoveRule from the GUI thread cannot free a node/string mid-match.
 static RuleAction match_rule(const char *process_name, UINT32 dest_ip, UINT16 dest_port, BOOL is_udp, UINT32 *out_proxy_config_id)
 {
@@ -2185,10 +2185,10 @@ static RuleAction match_rule(const char *process_name, UINT32 dest_ip, UINT16 de
     return action;
 }
 
-// IPv6 variant of match_rule — uses match_ip_list_v6 for host patterns.
+// IPv6 variant of match_rule - uses match_ip_list_v6 for host patterns.
 // Supports exact addresses ("::1"), CIDR ("2001:db8::/32"), and wildcards ("*").
 // IPv4-format patterns in target_hosts are silently skipped for IPv6 traffic.
-// Caller MUST hold g_rules_lock (shared) — see match_rule_v6 wrapper below.
+// Caller MUST hold g_rules_lock (shared) - see match_rule_v6 wrapper below.
 static RuleAction match_rule_v6_inner(const char *process_name, const UINT8 dest_ip6[16], UINT16 dest_port, BOOL is_udp, UINT32 *out_proxy_config_id)
 {
     PROCESS_RULE *rule = rules_list;
@@ -3047,7 +3047,7 @@ static int socks5_udp_associate_with_config(SOCKET s, struct sockaddr_in *relay_
 }
 
 // TRUE if any enabled PROXY rule routes traffic through this proxy config. Used to skip
-// proactively establishing UDP ASSOCIATE for configs that no rule uses — otherwise the
+// proactively establishing UDP ASSOCIATE for configs that no rule uses - otherwise the
 // relay wastes time (and can stall on a dead/unreachable host) connecting to proxies that
 // will never carry traffic. A rule with proxy_config_id 0 means "first available", which
 // could resolve to any config, so its presence marks all configs as potentially used.
@@ -3292,7 +3292,7 @@ static DWORD WINAPI udp_relay_server(LPVOID arg)
                 int result = recv(cfg->udp_tcp_ctrl, test_buf, sizeof(test_buf), MSG_PEEK);
                 if (result == 0 || (result == SOCKET_ERROR && WSAGetLastError() != WSAEWOULDBLOCK))
                 {
-                    log_message("[UDP RELAY] TCP control connection closed for proxy %s:%d — reconnecting", cfg->host, cfg->port);
+                    log_message("[UDP RELAY] TCP control connection closed for proxy %s:%d - reconnecting", cfg->host, cfg->port);
                     closesocket(cfg->udp_tcp_ctrl);
                     cfg->udp_tcp_ctrl = INVALID_SOCKET;
                     if (cfg->udp_send_sock != INVALID_SOCKET)
@@ -3349,7 +3349,7 @@ static DWORD WINAPI udp_relay_server(LPVOID arg)
                     {
                         if (!establish_udp_associate_for_config(cfg))
                         {
-                            log_message("[UDP RELAY] UDP ASSOCIATE unavailable for %s:%d — dropping packet", cfg->host, cfg->port);
+                            log_message("[UDP RELAY] UDP ASSOCIATE unavailable for %s:%d - dropping packet", cfg->host, cfg->port);
                             continue;
                         }
                     }
@@ -3371,7 +3371,7 @@ static DWORD WINAPI udp_relay_server(LPVOID arg)
 
                     if (sent == SOCKET_ERROR) {
                         int err = WSAGetLastError();
-                        log_message("[UDP RELAY ERROR] sendto proxy %s:%d failed: %d — reconnecting and retrying", cfg->host, cfg->port, err);
+                        log_message("[UDP RELAY ERROR] sendto proxy %s:%d failed: %d - reconnecting and retrying", cfg->host, cfg->port, err);
                         if (cfg->udp_tcp_ctrl != INVALID_SOCKET) { closesocket(cfg->udp_tcp_ctrl); cfg->udp_tcp_ctrl = INVALID_SOCKET; }
                         if (cfg->udp_send_sock != INVALID_SOCKET) { closesocket(cfg->udp_send_sock); cfg->udp_send_sock = INVALID_SOCKET; }
                         cfg->udp_connected = FALSE;
@@ -3483,7 +3483,7 @@ static DWORD WINAPI udp_relay_server(LPVOID arg)
                     }
                     else
                     {
-                        log_message("[UDP RELAY] No session found for proxy response from %d.%d.%d.%d:%d — dropped",
+                        log_message("[UDP RELAY] No session found for proxy response from %d.%d.%d.%d:%d - dropped",
                             recv_buf[4], recv_buf[5], recv_buf[6], recv_buf[7], src_port);
                     }
                 }
@@ -3935,9 +3935,9 @@ static DWORD WINAPI transfer_handler(LPVOID arg)
     pair->sock_proxy  = sock_proxy;
     pair->refs        = 2;
 
-    // Upload: client → proxy  (dedicated thread — may block on slow proxy send)
+    // Upload: client → proxy  (dedicated thread - may block on slow proxy send)
     ONE_WAY_CONFIG *up = (ONE_WAY_CONFIG *)malloc(sizeof(ONE_WAY_CONFIG));
-    // Download: proxy → client (runs in this thread — loopback, rarely blocks)
+    // Download: proxy → client (runs in this thread - loopback, rarely blocks)
     ONE_WAY_CONFIG *dn = (ONE_WAY_CONFIG *)malloc(sizeof(ONE_WAY_CONFIG));
 
     if (!up || !dn)
@@ -4568,7 +4568,7 @@ PROXYBRIDGE_API BOOL ProxyBridge_EditRule(UINT32 rule_id, const char* process_na
 
     if (!found)
     {
-        // rule_id not found — the pre-allocated strings were never installed, free them.
+        // rule_id not found - the pre-allocated strings were never installed, free them.
         free(new_hosts);
         free(new_ports);
         free(new_domains);
@@ -4970,7 +4970,7 @@ PROXYBRIDGE_API int ProxyBridge_TestProxyConfigEx(UINT32 config_id, const char* 
                     TLOG("  UDP ASSOCIATE granted; relay = %s:%u", inet_ntoa(relay.sin_addr), ntohs(relay.sin_port));
                     TLOG("  UDP is supported by this proxy");
                 }
-                else TLOG("  UDP ASSOCIATE refused — this proxy does not support UDP");
+                else TLOG("  UDP ASSOCIATE refused - this proxy does not support UDP");
             }
             else TLOG("  Could not open a control connection for the UDP test");
             closesocket(us);
@@ -5316,7 +5316,7 @@ static void flush_dns_resolver_cache(void)
 }
 
 // Recomputes the fast-path flags. Takes the shared rules lock itself, so callers must
-// NOT already hold g_rules_lock exclusive (SRW locks are non-recursive) — the rule API
+// NOT already hold g_rules_lock exclusive (SRW locks are non-recursive) - the rule API
 // functions below release their exclusive lock before calling this.
 static void update_has_active_rules(void)
 {
@@ -5407,7 +5407,7 @@ PROXYBRIDGE_API BOOL ProxyBridge_Start(void)
     // Without this, each WinDivertSend re-enters the capture queue, creating
     // re-injection loops that delay delivery by seconds and cause DTLS handshake
     // failures.  With "not impostor", injected packets bypass the driver entirely
-    // and flow directly to the OS — zero extra hops, no loops.
+    // and flow directly to the OS - zero extra hops, no loops.
     // DHCP is deliberately excluded at the filter level so those packets never enter
     // ProxyBridge at all. DHCP is link-local broadcast (0.0.0.0 -> 255.255.255.255) and
     // #161  DHCPv4: client 68 / server 67     DHCPv6: client 546 / server 547

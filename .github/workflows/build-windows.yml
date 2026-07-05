@@ -26,7 +26,7 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
-    # No MSVC setup action needed — compile.ps1 auto-detects cl.exe via vswhere.exe,
+    # No MSVC setup action needed - compile.ps1 auto-detects cl.exe via vswhere.exe,
     # which is pre-installed on every windows-latest runner.
 
     - name: Install NSIS

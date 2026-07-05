@@ -149,7 +149,7 @@ jobs:
         PKG_ENV_CONTENT: ${{ secrets.PKG_ENV }}
       run: |
         # Write PKG_ENV to .env but strip SIGNING_IDENTITY so build.sh skips signing
-        # (productsign inside build.sh cannot access build.keychain — we do it below)
+        # (productsign inside build.sh cannot access build.keychain - we do it below)
         printf '%s' "$PKG_ENV_CONTENT" | grep -v "^SIGNING_IDENTITY" > MacOS/ProxyBridge/.env
 
         # Copy notarized .app into output/ where build.sh expects it
@@ -157,7 +157,7 @@ jobs:
         cp -R MacOS/ProxyBridge/build/DerivedData/Build/Products/Release/ProxyBridge.app \
           MacOS/ProxyBridge/output/ProxyBridge.app
 
-        # Run build script — creates the unsigned .pkg only
+        # Run build script - creates the unsigned .pkg only
         cd MacOS/ProxyBridge
         chmod +x build.sh
         bash build.sh
@@ -166,7 +166,7 @@ jobs:
         PKG_UNSIGNED="output/ProxyBridge-v${PKG_VERSION}-Universal-Installer.pkg"
         PKG_SIGNED="output/ProxyBridge-v${PKG_VERSION}-Universal-Installer-signed.pkg"
 
-        # Sign pkg with explicit keychain — no prompting
+        # Sign pkg with explicit keychain - no prompting
         echo "Signing installer..."
         KEYCHAIN_PATH=$(security list-keychains -d user | grep build | tr -d ' "')
         echo "Using keychain: $KEYCHAIN_PATH"

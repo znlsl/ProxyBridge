@@ -202,7 +202,7 @@ if ($success) {
     Write-Host "`nBuilding C GUI (MSVC)..." -ForegroundColor Green
     if ($script:foundVcvarsPath -and (Test-Path $script:foundVcvarsPath)) {
         # Production build. Compiler: size-optimized static-CRT release with the security
-        # hardening set — /GS (stack cookies), /guard:cf (Control Flow Guard), /sdl (extra
+        # hardening set - /GS (stack cookies), /guard:cf (Control Flow Guard), /sdl (extra
         # security diagnostics), /GL + /Gy for whole-program opt & COMDAT folding.
         # Linker: /DYNAMICBASE + /HIGHENTROPYVA (64-bit ASLR), /NXCOMPAT (DEP),
         # /guard:cf (CFG), /CETCOMPAT (shadow-stack), /LTCG, dead-code strip.

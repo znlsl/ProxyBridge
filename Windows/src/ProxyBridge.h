@@ -42,8 +42,8 @@ PROXYBRIDGE_API BOOL   ProxyBridge_EditProxyConfig(UINT32 config_id, ProxyType t
 PROXYBRIDGE_API BOOL   ProxyBridge_DeleteProxyConfig(UINT32 config_id);
 PROXYBRIDGE_API int    ProxyBridge_TestProxyConfig(UINT32 config_id, const char* target_host, UINT16 target_port, char* result_buffer, size_t buffer_size);
 // Detailed multi-step proxy check (like Proxifier's Proxy Checker). Streams human-readable
-// log lines through the callback: TCP reach, tunnel + auth, page load, latency, and — for
-// SOCKS5 — a UDP ASSOCIATE probe. Returns 0 if the critical tests passed, negative otherwise.
+// log lines through the callback: TCP reach, tunnel + auth, page load, latency, and - for
+// SOCKS5 - a UDP ASSOCIATE probe. Returns 0 if the critical tests passed, negative otherwise.
 typedef void (*ProxyTestLogCallback)(const char* line, void* user);
 PROXYBRIDGE_API int    ProxyBridge_TestProxyConfigEx(UINT32 config_id, const char* target_host, UINT16 target_port, ProxyTestLogCallback callback, void* user);
 

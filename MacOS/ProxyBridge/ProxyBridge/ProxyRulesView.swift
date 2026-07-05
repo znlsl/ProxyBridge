@@ -469,7 +469,7 @@ struct RuleEditorView: View {
                         if viewModel.proxyConfigs.isEmpty {
                             HStack(spacing: 4) {
                                 Image(systemName: "info.circle").foregroundColor(.secondary)
-                                Text("No proxy servers configured — add one in Proxy Settings.")
+                                Text("No proxy servers configured - add one in Proxy Settings.")
                                     .font(.caption).foregroundColor(.secondary)
                             }
                         }

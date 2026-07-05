@@ -130,7 +130,81 @@ static void LogStoreClear(LogStore* s)
 {
     for (int i = 0; i < s->count; i++) free(s->lines[i]);
     s->count = 0;
+    EnterCriticalSection(&s->lock);
+    for (int i = 0; i < s->pendCount; i++) free(s->pend[i]);
+    s->pendCount = 0;
+    LeaveCriticalSection(&s->lock);
     SetWindowTextW(s->edit, L"");
+}
+// logs add approx 40 60% memory usage on load as proxybridge use pacekt not connections, too much overload
+// thanks to claude 4.8 ops flagging and fixing it - memory usage reduced:
+// On load memroy goes 70 to 120mb and keept increasing, now it is 20 to 30mb max (max in my test)
+// Memory goes down once load is reduced and come back at 10 to 2mb
+// approx 97% memory usage reduced, thanks to claude 4.8 ops
+// CPU usage is now based on usage instead of constantly increasing on load
+// batched pipeline: callbacks queue lines; the UI timer flushes them in one go
+static void LogStoreInit(LogStore* s, HWND edit)
+{
+    s->edit = edit;
+    InitializeCriticalSection(&s->lock);
+}
+// Native callback thread: takes ownership of `line`. Bounded - drops on overload so a burst
+// of connections (e.g. a speed test) can't balloon memory or back up a message queue.
+static void LogStoreQueue(LogStore* s, wchar_t* line)
+{
+    if (!line) return;
+    EnterCriticalSection(&s->lock);
+    if (s->pendCount < LOG_PEND_MAX) { s->pend[s->pendCount++] = line; line = NULL; }
+    LeaveCriticalSection(&s->lock);
+    if (line) free(line);   // queue full → drop
+}
+// UI thread (timer): drain the queue, store the lines, and append the matching ones to the
+// edit in a SINGLE operation. Returns how many lines were processed.
+static int LogStoreFlush(LogStore* s)
+{
+    static wchar_t* local[LOG_PEND_MAX];   // UI-thread only
+    EnterCriticalSection(&s->lock);
+    int n = s->pendCount;
+    for (int i = 0; i < n; i++) local[i] = s->pend[i];
+    s->pendCount = 0;
+    LeaveCriticalSection(&s->lock);
+    if (n == 0) return 0;
+
+    size_t total = 0;
+    for (int i = 0; i < n; i++) if (LogLineMatches(s, local[i])) total += wcslen(local[i]);
+    wchar_t* batch = total ? (wchar_t*)malloc((total + 1) * sizeof(wchar_t)) : NULL;
+    size_t off = 0;
+    for (int i = 0; i < n; i++)
+    {
+        wchar_t* line = local[i];
+        if (s->count >= LOG_MAX_LINES)
+        {
+            free(s->lines[0]);
+            memmove(&s->lines[0], &s->lines[1], (LOG_MAX_LINES - 1) * sizeof(wchar_t*));
+            s->count--;
+        }
+        s->lines[s->count++] = line;   // store takes ownership
+        if (batch && LogLineMatches(s, line)) { size_t l = wcslen(line); memcpy(batch + off, line, l * sizeof(wchar_t)); off += l; }
+    }
+    if (batch) { batch[off] = 0; AppendToEdit(s->edit, batch); free(batch); }
+
+    if (g_autoClear && s->count > AUTO_CLEAR_LINES)
+    {
+        for (int i = 0; i < s->count; i++) free(s->lines[i]);
+        s->count = 0;
+        SetWindowTextW(s->edit, L"");
+    }
+    return n;
+}
+static void LogStoreFree(LogStore* s)
+{
+    for (int i = 0; i < s->count; i++) free(s->lines[i]);
+    s->count = 0;
+    EnterCriticalSection(&s->lock);
+    for (int i = 0; i < s->pendCount; i++) free(s->pend[i]);
+    s->pendCount = 0;
+    LeaveCriticalSection(&s->lock);
+    DeleteCriticalSection(&s->lock);
 }
 
 #endif // PB_UI_LOGVIEW_H

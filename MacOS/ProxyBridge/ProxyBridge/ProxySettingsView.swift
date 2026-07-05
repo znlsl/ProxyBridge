@@ -102,7 +102,7 @@ struct ProxySettingsView: View {
                     if config.username != nil {
                         Image(systemName: "lock.fill").foregroundColor(.secondary)
                     } else {
-                        Text("—").foregroundColor(.secondary)
+                        Text("-").foregroundColor(.secondary)
                     }
                 }
                 .width(40)
