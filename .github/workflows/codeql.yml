@@ -45,41 +45,20 @@ jobs:
             -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
             -property installationPath
           $vcvars = Join-Path $vsPath "VC\Auxiliary\Build\vcvars64.bat"
-          cmd /c "`"$vcvars`" && cl.exe /nologo /W4 /wd4100 /wd4189 /wd4267 /wd4244 /wd4996 /D_CRT_SECURE_NO_WARNINGS /D_WINSOCK_DEPRECATED_NO_WARNINGS /DPROXYBRIDGE_EXPORTS /GS /guard:cf /I`"C:\WinDivert-2.2.2-A\include`" Windows\src\ProxyBridge.c /LD /link /DYNAMICBASE /NXCOMPAT /LIBPATH:`"C:\WinDivert-2.2.2-A\x64`" WinDivert.lib ws2_32.lib iphlpapi.lib /OUT:ProxyBridgeCore.dll"
+          # Compile-only (/c) so CodeQL traces every C translation unit without needing
+          # WinDivert.lib, NSIS or the linker. Covers the core DLL, the CLI and the GUI.
+          $common = "/nologo /c /W4 /wd4100 /wd4189 /wd4267 /wd4244 /wd4996 /D_CRT_SECURE_NO_WARNINGS /D_WINSOCK_DEPRECATED_NO_WARNINGS /GS /guard:cf"
+          # Core DLL
+          cmd /c "`"$vcvars`" && cl.exe $common /DPROXYBRIDGE_EXPORTS /I`"C:\WinDivert-2.2.2-A\include`" Windows\src\ProxyBridge.c"
+          # CLI
+          cmd /c "`"$vcvars`" && cl.exe $common /D_WIN32_WINNT=0x0601 /DUNICODE /D_UNICODE Windows\cli\main.c"
+          # Native C GUI (built from the gui folder so its subfolder includes resolve)
+          cmd /c "`"$vcvars`" && cd Windows\gui && cl.exe $common /utf-8 /DUNICODE /D_UNICODE main.c profile\profile.c"
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
         with:
           category: "/language:c-cpp"
-
-  analyze-csharp:
-    name: Analyze (csharp)
-    runs-on: windows-latest
-    permissions:
-      security-events: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
-        with:
-          languages: csharp
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Build
-        run: dotnet build Windows/gui/ProxyBridge.GUI.csproj
-        shell: pwsh
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
-        with:
-          category: "/language:csharp"
 
   analyze-swift:
     name: Analyze (swift)
@@ -110,9 +89,13 @@ jobs:
           ARCHS = arm64 x86_64
           ONLY_ACTIVE_ARCH = NO
           EOF
+          # PRODUCT_NAME must match the extension's product filename recorded in the
+          # Xcode project (com.interceptsuite.ProxyBridge.extension.systemextension),
+          # otherwise the app target's "Embed System Extensions" copy phase fails with
+          # "no such file". The module name stays the sanitized identifier.
           cat > MacOS/ProxyBridge/Signing-Config-ext.xcconfig << 'EOF'
           PRODUCT_MODULE_NAME = com_interceptsuite_ProxyBridge_extension
-          PRODUCT_NAME = extension
+          PRODUCT_NAME = com.interceptsuite.ProxyBridge.extension
           PRODUCT_BUNDLE_IDENTIFIER = com.interceptsuite.ProxyBridge.extension
           ARCHS = arm64 x86_64
           ONLY_ACTIVE_ARCH = NO

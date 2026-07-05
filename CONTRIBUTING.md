@@ -49,17 +49,26 @@ Feature suggestions are welcome! Please provide:
 
 ### Pull Requests
 
-**IMPORTANT: Before Creating a Pull Request**
+**IMPORTANT: Open an Issue and WAIT for a Reply Before You Start Coding**
 
-1. **Create a GitHub Issue First**
-   - If you want to fix a bug or add a new feature, **create a GitHub issue first**
-   - This allows us to track and confirm whether:
-     - The feature is already implemented in our development branch
-     - We plan to include that feature (some features may not align with project goals)
-     - Your pull request will be accepted before you invest time coding
-   - If a GitHub issue already exists for the bug/feature you want to work on:
-     - Comment on the existing issue mentioning you plan to fix it
-     - **Do NOT create a duplicate issue**
+Please read this carefully - it is the most common source of wasted effort.
+
+1. **Create a GitHub Issue First - then wait for maintainer confirmation**
+   - Before writing **any** code, **open a GitHub issue** describing the bug you want to fix or the feature you want to add.
+   - **Then stop and wait for a maintainer to reply.** Do **not** start coding, and do **not** open a pull request yet.
+   - The whole point of the issue is to let us tell you *before you invest time* whether:
+     - The feature/fix is **already implemented** in the `dev` branch (not yet released, so you can't see it).
+     - It is **already being worked on** by someone else or by us right now.
+     - It **doesn't align** with the project's goals and would be declined regardless of quality.
+   - Only once a maintainer confirms it's not already done / in progress and that it fits the project should you fork, code, and open a PR.
+
+   > [!WARNING]
+   > **Opening an issue and a pull request at the same time defeats the purpose.**
+   > Several contributors have forked, built a feature, opened a brand-new issue, and immediately opened a PR for it in one go. By then the work is already done - so if the feature was already implemented, already in progress, or out of scope, **your effort is wasted and the PR will be closed.** The issue exists so we can catch that *beforehand*. Please wait for our reply on the issue before you build anything.
+
+   - If a GitHub issue for the bug/feature **already exists**:
+     - Comment on it saying you'd like to work on it and wait for a maintainer to assign it / give the go-ahead.
+     - **Do NOT create a duplicate issue.**
 
 2. **Fork the `dev` Branch**
    - **Always fork and create pull requests against the `dev` branch**
@@ -91,8 +100,7 @@ Feature suggestions are welcome! Please provide:
 ### Windows
 
 **Prerequisites:**
-- Visual Studio 2022 or later (with C++ tools)
-- .NET 10.0 SDK
+- Visual Studio 2022 or later (with the "Desktop development with C++" workload) - the core DLL, CLI and GUI are all native C built with `cl.exe`
 - PowerShell 5.1 or later
 - Git
 - **WinDivert 2.2.2-A** - Download from: https://www.reqrypt.org/windivert.html
@@ -139,28 +147,27 @@ Test-Path C:\WinDivert-2.2.2-A\include\windivert.h
 **What compile.ps1 Does:**
 1. Compiles `ProxyBridgeCore.dll` from C source code (using MSVC or GCC)
 2. Copies WinDivert runtime files (`WinDivert.dll`, `WinDivert64.sys`, `WinDivert32.sys`)
-3. Publishes GUI app (`ProxyBridge.exe`) with .NET single-file deployment
-4. Publishes CLI app (`ProxyBridge_CLI.exe`) as single executable
+3. Builds the native C GUI (`ProxyBridge.exe`) with `cl.exe`
+4. Builds the native C CLI (`ProxyBridge_CLI.exe`) as a single executable
 5. Optionally signs all binaries (requires code signing certificate)
-6. Builds NSIS installer (`ProxyBridge-Setup-3.1.0.exe`) if NSIS is installed
+6. Builds NSIS installer (`ProxyBridge-Setup-4.0.10-Beta.exe`) if NSIS is installed
 
 **Output:**
 All compiled files are placed in `Windows/output/` directory:
 - `ProxyBridgeCore.dll` - Native C library
-- `ProxyBridge.exe` - GUI application
-- `ProxyBridge_CLI.exe` - CLI application
+- `ProxyBridge.exe` - Native C GUI application
+- `ProxyBridge_CLI.exe` - Native C CLI application
 - `WinDivert.dll`, `WinDivert64.sys` - WinDivert files
-- `ProxyBridge-Setup-3.1.0.exe` - Installer (if NSIS installed)
-- Additional .NET runtime DLLs
+- `ProxyBridge-Setup-4.0.10-Beta.exe` - Installer (if NSIS installed)
 
 **Project Structure:**
 - `Windows/src/` - C library core (ProxyBridge.c, ProxyBridge.h)
   - `ProxyBridge.c` - Main packet interception logic
   - Uses WinDivert for kernel-level packet capture
-- `Windows/gui/` - Avalonia GUI (.NET 10.0)
-  - GUI application using Avalonia UI framework
-- `Windows/cli/` - Command-line interface (.NET 10.0)
-  - CLI application for headless operation
+- `Windows/gui/` - Native C (Win32) GUI application
+  - `main.c` - entry point and main window; `ui/`, `api/`, `loc/`, `profile/`, `res/` subfolders
+- `Windows/cli/` - Native C command-line interface
+  - `main.c` - CLI application for headless operation
 - `Windows/installer/` - NSIS installer script
   - `ProxyBridge.nsi` - Installer configuration
 - `Windows/compile.ps1` - Build script
@@ -456,43 +463,17 @@ static bool check_proxy_rules(const char *process, uint32_t dest_ip,
 - Free allocated memory
 - Use meaningful variable names
 
-### C# (Windows GUI/CLI)
+### C (Windows GUI/CLI)
 
-```csharp
-// Follow .NET naming conventions
-public class ProxySettingsViewModel : ViewModelBase
-{
-    private string _proxyHost = "127.0.0.1";
-
-    // Properties use PascalCase
-    public string ProxyHost
-    {
-        get => _proxyHost;
-        set => this.RaiseAndSetIfChanged(ref _proxyHost, value);
-    }
-
-    // Methods use PascalCase
-    public async Task SaveSettingsAsync()
-    {
-        // Use meaningful names
-        var settings = new ProxySettings
-        {
-            ProxyHost = ProxyHost,
-            ProxyPort = ProxyPort
-        };
-
-        await _configManager.SaveAsync(settings);
-    }
-}
-```
+The Windows GUI and CLI are native C built against the Win32 API - the same standards as the core apply.
 
 **Standards:**
-- Use 4 spaces for indentation
-- Follow C# naming conventions (PascalCase for public, camelCase for private)
-- Use `async/await` for asynchronous operations
-- Handle exceptions appropriately
-- Use `using` statements for IDisposable
-- Add XML documentation comments for public APIs
+- Use 4 spaces for indentation (no tabs)
+- Maximum line length: 100 characters
+- Always use braces for if/while/for blocks
+- Use the **secure CRT** variants (`_snwprintf_s`, `strcpy_s`, `strncpy_s`, ...) - the banned unbounded functions are rejected in review
+- Free every allocation; guard against double-free and leaks (the GUI is long-running)
+- Keep the build warning-clean under `/W4`
 
 ### Swift (macOS)
 

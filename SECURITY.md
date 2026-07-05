@@ -6,11 +6,11 @@ We actively support the following versions of ProxyBridge with security updates:
 
 | Version | Supported          | Platform |
 | ------- | ------------------ | -------- |
-| 3.1.x   | :white_check_mark: | Windows, macOS |
-| 3.0.x   | :x:                | Windows, macOS |
+| 4.0.x   | :white_check_mark: | Windows, macOS, Linux |
+| 3.x     | :x:                | Windows, macOS |
 | < 3.0   | :x:                | All      |
 
-**Note:** Only the latest minor version (3.1.x) receives security updates. Please upgrade to the latest version to ensure you have all security fixes.
+**Note:** Only the latest release line (4.0.x) receives security updates. Please upgrade to the latest version to ensure you have all security fixes.
 
 ## Reporting a Vulnerability
 
@@ -68,8 +68,8 @@ ProxyBridge operates with the following security considerations:
 #### Windows Architecture
 - **Three Components:**
   - **ProxyBridgeCore.dll** - Native C library for packet interception (WinDivert-based)
-  - **ProxyBridge.exe** - Avalonia-based GUI application (.NET 10.0)
-  - **ProxyBridge_CLI.exe** - Command-line interface application (.NET 10.0)
+  - **ProxyBridge.exe** - Native C (Win32) GUI application
+  - **ProxyBridge_CLI.exe** - Native C command-line interface application
 - **Requires Administrator privileges** to install and run WinDivert kernel driver
 - **Kernel-level packet interception** via WinDivert.sys driver
 - **Local TCP relay server** runs on port 34010 (127.0.0.1 only)
@@ -126,8 +126,6 @@ ProxyBridge operates with the following security considerations:
 5. **Third-party Dependencies:**
    - **Windows:**
      - WinDivert 2.x (kernel driver + userspace library) - trusted, open-source
-     - Avalonia UI 11.x framework
-     - .NET 10.0 runtime
    - **macOS:**
      - Apple NetworkExtension framework (system component)
      - Swift standard library
@@ -231,6 +229,6 @@ We thank the security research community for helping keep ProxyBridge secure. Sp
 
 ---
 
-**Last Updated:** January 2026
+**Last Updated:** July 2026
 
 Thank you for helping keep ProxyBridge and our users safe! 🛡️

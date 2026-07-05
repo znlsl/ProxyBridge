@@ -113,7 +113,7 @@ winget install InterceptSuite.ProxyBridge
 >
 > If you prefer not to use prebuilt binaries, you may safely build ProxyBridge yourself by following the **Contribution Guide** and compiling directly from the **official source code**.
 >
-> ProxyBridge does not communicate with any external servers except the GitHub API for update checks (triggered only on app launch or manual update checks);
+> ProxyBridge does not communicate with any external servers except its own update feed at `https://download.interceptsuite.com/proxybridge.json` for update checks (triggered only on app launch or manual update checks);
 
 
 
@@ -270,7 +270,7 @@ This project is built on top of [WinDivert](https://reqrypt.org/windivert.html) 
 Based on the StreamDump example from WinDivert:
 https://reqrypt.org/samples/streamdump.html
 
-The Windows GUI is built using [Avalonia UI](https://avaloniaui.net/) - a cross-platform XAML-based UI framework for .NET, enabling a modern and responsive user interface.
+The Windows GUI and CLI are written in native C using the Win32 API, keeping the footprint small and startup instant.
 
 **macOS Implementation:**
 Built using Apple's Network Extension framework for transparent proxy capabilities on macOS.
