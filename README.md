@@ -182,9 +182,9 @@ winget install InterceptSuite.ProxyBridge
 </p>
 
 <p align="center">
-  <img src="img/proxy-rule2.png" alt="Add/Edit Rule" width="800"/>
+  <img src="img/Proxy-Tester.png" alt="Proxy Tester" width="800"/>
   <br/>
-  <em>Add/Edit Proxy Rule</em>
+  <em>Proxy Tester</em>
 </p>
 
 #### CLI
